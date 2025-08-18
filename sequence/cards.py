@@ -52,6 +52,17 @@ def _ensure_cards_dir() -> None:
     if not os.path.exists(CARDS_DIR):
         os.makedirs(CARDS_DIR, exist_ok=True)
 
+
+def _text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> tuple[int, int]:
+    """Return width and height of *text* rendered with *font*.
+
+    Pillow 10 removed :meth:`ImageDraw.textsize`, so we emulate it using
+    :meth:`ImageDraw.textbbox` which provides the bounding box of the drawn
+    text.  The returned width and height match the old ``textsize`` values.
+    """
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
 def _load_font(size: int) -> ImageFont.FreeTypeFont:
     """Attempt to load a default TrueType font; fallback to a basic font.
 
@@ -99,16 +110,16 @@ def generate_card_image(card: str) -> Image.Image:
     font_small = _load_font(20)
     if card == 'W':
         # Wild corner tile: draw a large "W" centred
-        w, h = draw.textsize("W", font=font_large)
+        w, h = _text_size(draw, "W", font_large)
         draw.text(((CARD_WIDTH - w) / 2, (CARD_HEIGHT - h) / 2), "W", fill="black", font=font_large)
     elif card in ('J1', 'J2'):
         # Draw J with 1 or 2 eyes (simple stylisation)
         rank_text = "J" + ("₁" if card == 'J1' else "₂")
-        w, h = draw.textsize(rank_text, font=font_large)
+        w, h = _text_size(draw, rank_text, font_large)
         draw.text(((CARD_WIDTH - w) / 2, (CARD_HEIGHT - h) / 2), rank_text, fill="black", font=font_large)
         # Label the Jack type at bottom
         label = "One-Eyed" if card == 'J1' else "Two-Eyed"
-        lw, lh = draw.textsize(label, font=font_small)
+        lw, lh = _text_size(draw, label, font_small)
         draw.text(((CARD_WIDTH - lw) / 2, CARD_HEIGHT - lh - 5), label, fill="black", font=font_small)
     else:
         # Split rank and suit
@@ -126,13 +137,13 @@ def generate_card_image(card: str) -> Image.Image:
         colour = "red" if suit in ('H', 'D') else "black"
         # Draw rank in top-left and bottom-right
         rank_font = _load_font(24)
-        rw, rh = draw.textsize(rank, font=rank_font)
+        rw, rh = _text_size(draw, rank, rank_font)
         draw.text((4, 2), rank, fill=colour, font=rank_font)
         # Draw the same rank mirrored in bottom-right
         draw.text((CARD_WIDTH - rw - 4, CARD_HEIGHT - rh - 2), rank, fill=colour, font=rank_font)
         # Draw suit symbol centred
         symbol_font = _load_font(48)
-        sw, sh = draw.textsize(suit_symbol, font=symbol_font)
+        sw, sh = _text_size(draw, suit_symbol, symbol_font)
         draw.text(((CARD_WIDTH - sw) / 2, (CARD_HEIGHT - sh) / 2 - 10), suit_symbol, fill=colour, font=symbol_font)
     # Save generated image for caching
     image.save(path)
