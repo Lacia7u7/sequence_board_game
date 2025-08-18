@@ -1,0 +1,6 @@
+# Placeholder Dockerfile for React web app
+FROM node:20-alpine
+WORKDIR /app
+COPY ../../apps/web /app
+RUN npm install && npm run build
+CMD ["npx", "vite", "preview", "--host", "0.0.0.0"]

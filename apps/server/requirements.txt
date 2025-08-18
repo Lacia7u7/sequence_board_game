@@ -1,0 +1,4 @@
+Flask>=3.0
+firebase-admin>=6.2.0
+google-cloud-firestore>=2.11.1
+pydantic>=2.5.3
