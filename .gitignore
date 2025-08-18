@@ -1,8 +1,0 @@
-__pycache__/
-node_modules/
-*.log
-*.pyc
-
-# Vite build output
-apps/web/dist/
-packages/game-rules-ts/dist/

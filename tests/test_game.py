@@ -1,11 +1,7 @@
 import unittest
-import os
-import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from apps.server.sequence.board_layouts import load_layout, card_positions
-from apps.server.sequence.game import Game
+from sequence.board_layouts import load_layout, card_positions
+from sequence.game import Game
 
 
 class TestSequenceGame(unittest.TestCase):
