@@ -5,7 +5,7 @@ This project provides a complete implementation of the classic **Sequence** boar
 ## Features
 
 * **Original card layout** – The board layout used here matches the commercial Sequence board.  Each non‑Jack card appears **exactly twice**, and the four corners are free spaces.  The layout data is stored in a JSON file under `assets/layouts/sequence_layout.json` and was extracted from an open‑source reference implementation【433063295206110†L444-L455】【433063295206110†L454-L465】.
-* **Tkinter UI** – A simple GUI allows players to configure the number of teams (up to three), assign human or AI control to each team, start a game and play by clicking on their cards and the board.  Chips are displayed in blue, red and yellow according to the team.
+* **Web UI (Flask + React)** – The game can now be played in a browser.  A lightweight Flask server exposes the game state while a React front end renders the board and allows players to make moves from `http://localhost:5000`.
 * **Complete rules** – The engine enforces all core rules: placing chips on the two matching card spaces, using one‑eyed and two‑eyed Jacks appropriately, discarding dead cards, sequence detection (including overlapping sequences), and victory conditions based on the number of required sequences (two sequences for two teams, one sequence for three teams)【47690820291022†L80-L88】【47690820291022†L189-L206】.
 * **Reinforcement learning agent** – A small convolutional neural network (implemented in pure NumPy) can be trained via self‑play to serve as a computer opponent.  The agent observes the full board state, applies an action mask to forbid illegal moves and learns via a simple policy‑gradient algorithm.  Pretrained weights can be found under `assets/weights/`.
 
@@ -17,19 +17,21 @@ Install the required Python packages from `requirements.txt`:
 pip install -r requirements.txt
 ```
 
-Start the GUI with:
+Start the web interface with:
 
 ```bash
-python main.py
+python app.py
 ```
 
-The start screen will prompt for the number of teams and whether each team is controlled by a human or the AI.  Once the game begins, click a card in your hand and then click the corresponding board cell to place a chip.  Right‑click a card to discard it if both board spaces are already occupied.  You can press **N** on your keyboard to advance the game by letting an AI player make its move, and press **T** to run a quick self‑play training session during a game.  Training plays a series of games between the learning agent and a heuristic opponent, improving the neural network and saving the updated weights to `assets/weights/agent_default.npz`.
+Then open [http://localhost:5000](http://localhost:5000) in your browser to play.  The React front end displays the board and your current hand.  Click any board cell to be prompted for which card to play.
 
 ## Directory layout
 
 ```
 sequence_rl_project/
-├── main.py                # Launches the UI
+├── app.py                 # Flask backend serving the web UI
+├── frontend/              # React front end served as static files
+├── main.py                # (legacy) Launches the Tkinter UI
 ├── requirements.txt       # Third‑party dependencies
 ├── README.md              # This file
 ├── assets/
