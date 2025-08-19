@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signed() { return request.auth != null; }
+    function owner(match) {
+      return get(/databases/$(db)/documents/matches/$(match)).data.ownerUid;
+    }
+    function isOwner(match) { return signed() && request.auth.uid == owner(match); }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if signed();
+      allow update, delete: if signed() && request.auth.uid == uid;
+    }
+
+    match /friendRequests/{id} {
+      allow read: if signed();
+      allow create: if signed() && request.resource.data.fromUid == request.auth.uid;
+      allow update, delete: if signed() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+    }
+
+    match /matches/{match} {
+      allow read: if true;
+      allow create: if signed();
+      allow update, delete: if isOwner(match);
+
+      match /players/{seat} {
+        allow read: if true;
+        allow write: if signed(); // server-side validation ensures correctness
+      }
+
+      match /moves/{m} {
+        allow read: if true;
+        allow write: if false; // disallow client writes
+      }
+
+      match /chat/{msg} {
+        allow read: if true;
+        allow write: if false; // chat messages written via callable function
+      }
+
+      match /state {
+        allow read: if true;
+        allow write: if false; // only server writes state
+      }
+    }
+  }
+}

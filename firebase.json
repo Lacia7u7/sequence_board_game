@@ -1,0 +1,22 @@
+{
+  "hosting": {
+    "public": "app/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/**", "function": "proxy_api_py" },
+      { "source": "**", "destination": "/index.html" }
+    ]
+  },
+  "functions": {
+    "source": "functions-python",
+    "runtime": "python312",
+    "codebase": "py",
+    "ignore": ["**/node_modules/**", "**/.venv/**"],
+    "targets": {
+      "py": {
+        "minInstances": 1,
+        "region": "us-central1"
+      }
+    }
+  }
+}

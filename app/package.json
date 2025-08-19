@@ -1,0 +1,38 @@
+{
+  "name": "sequence-online-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.11.0",
+    "zustand": "^4.4.0",
+    "i18next": "^23.4.6",
+    "react-i18next": "^13.0.0",
+    "firebase": "^10.0.0",
+    "@radix-ui/react-dialog": "^1.0.3",
+    "@radix-ui/react-toast": "^1.0.3",
+    "@headlessui/react": "^1.7.15"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0",
+    "@vitejs/plugin-react": "^3.1.0",
+    "tailwindcss": "^3.3.2",
+    "postcss": "^8.4.21",
+    "autoprefixer": "^10.4.13",
+    "vitest": "^0.31.0",
+    "@testing-library/react": "^14.0.0",
+    "playwright": "^1.35.1"
+  }
+}

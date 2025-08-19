@@ -1,0 +1,62 @@
+# Node / frontend
+node_modules/
+dist/
+.env
+.env.*        # environment files
+.vite/
+.vscode/
+
+# Vite / build artifacts
+public/dist/
+app/dist/
+app/.turbo/
+coverage/
+
+# Python / functions
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pytest_cache/
+.venv/
+venv/
+.env-python
+functions-python/.venv/
+
+# Firebase / local config & keys (DO NOT commit)
+app/src/lib/firebase.ts        # if you keep the config file there locally
+firebase-debug.log
+.firebase/
+.firebase-debug.*
+.firebase/hosting.cache
+functions-python/serviceAccountKey.json
+functions-python/.runtimeconfig.json
+
+# Large data / models / weights
+*.pt
+*.pth
+*.onnx
+weights/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# misc artifacts
+*.log
+*.tmp
+secrets/
+
+# Firebase local/secret config
+.firebaserc
+.firebase/
+.firebase-debug.log
+functions-python/.runtimeconfig.json
+functions-python/serviceAccountKey.json
+app/src/lib/firebase.ts
