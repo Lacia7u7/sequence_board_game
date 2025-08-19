@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  updateProfile,            // 👈 importa la función
   type User,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -33,12 +34,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
   };
+
   const signup = async (email: string, password: string, displayName: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (cred.user && displayName) {
-      await cred.user.updateProfile({ displayName });
+      // 👇 usar la función modular pasando el usuario como primer argumento
+      await updateProfile(cred.user, { displayName });
     }
   };
+
   const logout = async () => {
     await signOut(auth);
   };

@@ -12,7 +12,7 @@ interface Cell {
 }
 
 const getCardImage = (card: string) => {
-  // Map card like 'A♠' to file path assets/cards/1AS.JPG
+  // files live under /assets/cards/1{RANK}{SUIT}.JPG  e.g., 1AS.JPG
   if (!card || card === 'BONUS') return null;
   const rank = card.slice(0, -1);
   const suit = card.slice(-1);
@@ -40,7 +40,7 @@ const getCardImage = (card: string) => {
   const r = rankMap[rank];
   const s = suitMap[suit];
   if (!r || !s) return null;
-  return `/assets/cards/1${r}${s}.JPG`;
+  return `/assets/cards/${r}${s}.png`;
 };
 
 const GamePage: React.FC = () => {
@@ -51,12 +51,26 @@ const GamePage: React.FC = () => {
   const [mySeatId, setMySeatId] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [pendingJackAction, setPendingJackAction] = useState<{ card: string; type: 'wild' | 'remove' } | null>(null);
+
   useEffect(() => {
     if (!matchId) return;
+
     const stateRef = doc(firestore, 'matches', matchId, 'state', 'state');
     const unsubState = onSnapshot(stateRef, (snap) => {
-      setState(snap.data());
+      const raw = snap.data();
+      if (!raw) {
+        setState(null);
+        return;
+      }
+      // 🔧 Derivar board 2D desde boardRows para que el resto del componente no cambie
+      const board: Cell[][] =
+        Array.isArray(raw.board) ? raw.board :
+        Array.isArray(raw.boardRows) ? raw.boardRows.map((r: any) => Array.isArray(r?.cells) ? r.cells : []) :
+        [];
+
+      setState({ ...raw, board }); // guardamos 'board' listo para usar
     });
+
     const playersRef = collection(doc(firestore, 'matches', matchId), 'players');
     const unsubPlayers = onSnapshot(playersRef, (snap) => {
       const data: any = {};
@@ -65,46 +79,45 @@ const GamePage: React.FC = () => {
       const found = Object.keys(data).find((pid) => data[pid].uid === user?.uid);
       setMySeatId(found || null);
     });
+
     return () => {
       unsubState();
       unsubPlayers();
     };
   }, [matchId, user?.uid]);
+
   if (!state) return <div className="p-4">Loading...</div>;
-  const board: Cell[][] = state.board;
+
+  const board: Cell[][] = Array.isArray(state.board) ? state.board : [];
+  const cols = board[0]?.length ?? 0;
+
   const hand: string[] = state.hand || (mySeatId ? state.hands?.[mySeatId] || [] : []);
   const currentSeatId: string | null = state.currentSeatId;
   const myTurn = currentSeatId === mySeatId;
   const currentTeamIndex = mySeatId ? players[mySeatId]?.teamIndex : null;
+
   const playCardOnCell = async (r: number, c: number) => {
     if (!selectedCard || !mySeatId) return;
-    // Determine move type for Jack cards
     let moveType: string = 'play';
-    let removed = null;
-    let target = { r, c };
+    let removed: any = null;
+    let target: any = { r, c };
+
     if (selectedCard.startsWith('J')) {
       if (!pendingJackAction) {
-        // Show action buttons
         setPendingJackAction({ card: selectedCard, type: 'wild' });
         return;
       } else {
         moveType = pendingJackAction.type === 'wild' ? 'wild' : 'jack-remove';
         if (pendingJackAction.type === 'remove') {
           removed = { r, c };
-          target = null as any;
+          target = null;
         }
       }
     }
+
     try {
       const submit = httpsCallable(functions, 'submit_move');
-      await submit({
-        matchId,
-        seatId: mySeatId,
-        type: moveType,
-        card: selectedCard,
-        target,
-        removed,
-      });
+      await submit({ matchId, seatId: mySeatId, type: moveType, card: selectedCard, target, removed });
       setSelectedCard(null);
       setPendingJackAction(null);
     } catch (err: any) {
@@ -112,64 +125,64 @@ const GamePage: React.FC = () => {
       alert(err?.message || 'Move failed');
     }
   };
+
   const burnSelected = async () => {
     if (!selectedCard || !mySeatId) return;
     try {
       const submit = httpsCallable(functions, 'submit_move');
-      await submit({
-        matchId,
-        seatId: mySeatId,
-        type: 'burn',
-        card: selectedCard,
-      });
+      await submit({ matchId, seatId: mySeatId, type: 'burn', card: selectedCard });
       setSelectedCard(null);
     } catch (err: any) {
       console.error(err);
       alert(err?.message || 'Burn failed');
     }
   };
+
   return (
     <div className="p-4 max-w-5xl mx-auto grid gap-4 grid-cols-1 md:grid-cols-4">
       <div className="md:col-span-3 flex flex-col items-center">
         <h2 className="text-xl font-bold mb-2">Game Board</h2>
-        <div className="overflow-auto border rounded shadow" style={{ maxHeight: '70vh' }}>
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `repeat(${board[0].length}, 2.5rem)` }}
-          >
-            {board.map((row, r) =>
-              row.map((cell, c) => {
-                const cardImg = getCardImage(cell.card);
-                const isBonus = cell.card === 'BONUS';
-                return (
-                  <div
-                    key={`${r}-${c}`}
-                    className={`w-10 h-12 border flex items-center justify-center relative ${isBonus ? 'bg-yellow-200' : 'bg-white'}`}
-                    onClick={() => myTurn && playCardOnCell(r, c)}
-                  >
-                    {cardImg ? (
-                      <img src={cardImg} alt={cell.card} className="w-full h-full object-contain" />
-                    ) : (
-                      <span className="text-xs">{isBonus ? '★' : cell.card}</span>
-                    )}
-                    {cell.chip && (
-                      <span
-                        className={`absolute w-4 h-4 rounded-full ${
-                          cell.chip.teamIndex === 0
-                            ? 'bg-blue-500'
-                            : cell.chip.teamIndex === 1
-                            ? 'bg-green-500'
-                            : 'bg-red-500'
-                        }`}
-                        style={{ top: '2px', right: '2px' }}
-                      ></span>
-                    )}
-                  </div>
-                );
-              }),
-            )}
+
+        {cols > 0 ? (
+          <div className="overflow-auto border rounded shadow" style={{ maxHeight: '70vh' }}>
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, 2.5rem)` }}>
+              {board.map((row, r) =>
+                row.map((cell, c) => {
+                  const cardImg = getCardImage(cell?.card);
+                  const isBonus = cell?.card === 'BONUS';
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      className={`w-10 h-12 border flex items-center justify-center relative ${isBonus ? 'bg-yellow-200' : 'bg-white'}`}
+                      onClick={() => myTurn && playCardOnCell(r, c)}
+                    >
+                      {cardImg ? (
+                        <img src={cardImg} alt={cell.card} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-xs">{isBonus ? '★' : cell?.card}</span>
+                      )}
+                      {cell?.chip && (
+                        <span
+                          className={`absolute w-4 h-4 rounded-full ${
+                            cell.chip.teamIndex === 0
+                              ? 'bg-blue-500'
+                              : cell.chip.teamIndex === 1
+                              ? 'bg-green-500'
+                              : 'bg-red-500'
+                          }`}
+                          style={{ top: '2px', right: '2px' }}
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-sm text-gray-600">Board not ready yet…</div>
+        )}
+
         {/* Hand */}
         <div className="mt-4 flex space-x-2 flex-wrap justify-center max-w-full">
           {hand.map((card) => {
@@ -190,6 +203,7 @@ const GamePage: React.FC = () => {
             );
           })}
         </div>
+
         {selectedCard && (
           <div className="mt-2 flex items-center space-x-2">
             {selectedCard.startsWith('J') && !pendingJackAction && (
@@ -208,26 +222,21 @@ const GamePage: React.FC = () => {
                 </button>
               </>
             )}
-            <button
-              onClick={burnSelected}
-              className="py-1 px-2 bg-gray-500 text-white rounded text-sm"
-            >
+            <button onClick={burnSelected} className="py-1 px-2 bg-gray-500 text-white rounded text-sm">
               Burn Card
             </button>
           </div>
         )}
       </div>
+
       <div className="md:col-span-1 flex flex-col space-y-4">
         <div className="border rounded shadow p-2">
           <h3 className="font-semibold mb-1">Players</h3>
           <ul className="space-y-1 text-sm">
             {Object.entries(players)
-              .sort((a, b) => a[1].seatIndex - b[1].seatIndex)
-              .map(([pid, p]) => (
-                <li
-                  key={pid}
-                  className={`${pid === currentSeatId ? 'bg-yellow-100' : ''} p-1 flex justify-between`}
-                >
+              .sort((a: any, b: any) => a[1].seatIndex - b[1].seatIndex)
+              .map(([pid, p]: any) => (
+                <li key={pid} className={`${pid === currentSeatId ? 'bg-yellow-100' : ''} p-1 flex justify-between`}>
                   <span>
                     {p.displayName || 'AI'} {pid === mySeatId && '(You)'}
                   </span>

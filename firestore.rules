@@ -1,47 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-    function signed() { return request.auth != null; }
-    function owner(match) {
-      return get(/databases/$(db)/documents/matches/$(match)).data.ownerUid;
-    }
-    function isOwner(match) { return signed() && request.auth.uid == owner(match); }
 
+    // Utilidades
+    function signed() { return request.auth != null; }
+
+    // Devuelve el ownerUid del match especificado (matchId)
+    // Nota: usamos matchId (no 'match') para evitar colisiones con la palabra reservada
+    function ownerOfMatch(matchId) {
+      // path completo al documento: /databases/$(db)/documents/matches/{matchId}
+      // usamos $(db) porque la variable en el match superior se llamó "db"
+      return get(/databases/$(db)/documents/matches/$(matchId)).data.ownerUid;
+    }
+
+    function isOwner(matchId) {
+      return signed() && request.auth.uid == ownerOfMatch(matchId);
+    }
+
+    // Users: lectura pública, escritura solo por el dueño
     match /users/{uid} {
       allow read: if true;
       allow create: if signed();
       allow update, delete: if signed() && request.auth.uid == uid;
     }
 
+    // Friend requests: lecturas y escrituras controladas
     match /friendRequests/{id} {
       allow read: if signed();
       allow create: if signed() && request.resource.data.fromUid == request.auth.uid;
       allow update, delete: if signed() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
     }
 
-    match /matches/{match} {
-      allow read: if true;
+    // Matches y subcolecciones
+    match /matches/{matchId} {
+      allow read: if true; // espectadores pueden leer metadata
       allow create: if signed();
-      allow update, delete: if isOwner(match);
+      // permitimos update/delete sólo si eres el owner del match
+      allow update, delete: if isOwner(matchId);
 
+      // players subcollection (documentos por asiento)
       match /players/{seat} {
-        allow read: if true;
-        allow write: if signed(); // server-side validation ensures correctness
+        allow read: if true; // lobby visible
+        // escritura por cliente deshabilitada para casos sensibles (servidor valida)
+        allow write: if false;
       }
 
+      // moves subcollection: lectura OK, escritura cliente NO
       match /moves/{m} {
         allow read: if true;
-        allow write: if false; // disallow client writes
+        allow write: if false;
       }
 
+      // chat subcollection: lectura OK, escritura sólo vía callable (deny client writes)
       match /chat/{msg} {
         allow read: if true;
-        allow write: if false; // chat messages written via callable function
+        allow write: if false;
       }
 
+      // Documento 'state' (state/state en tu estructura): lectura pública, escritura NO
       match /state {
-        allow read: if true;
-        allow write: if false; // only server writes state
+        match /state {
+          allow read: if true;
+          allow write: if false;
+        }
       }
     }
   }

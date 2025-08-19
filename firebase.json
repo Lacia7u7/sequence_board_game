@@ -1,22 +1,47 @@
 {
+  "emulators": {
+    "ui": { "enabled": true, "port": 4000 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "auth": { "port": 9099 },
+    "storage": { "port": 9199 }
+  },
   "hosting": {
     "public": "app/dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
-      { "source": "/api/**", "function": "proxy_api_py" },
-      { "source": "**", "destination": "/index.html" }
+      {
+        "source": "/api/**",
+        "function": "proxy_api_py"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
   },
-  "functions": {
-    "source": "functions-python",
-    "runtime": "python312",
-    "codebase": "py",
-    "ignore": ["**/node_modules/**", "**/.venv/**"],
-    "targets": {
-      "py": {
-        "minInstances": 1,
-        "region": "us-central1"
-      }
+  "functions": [
+    {
+      "source": "functions-python",
+      "runtime": "python312",
+      "codebase": "functions-python",
+      "ignore": [
+        "**/node_modules/**",
+        "**/.venv/**"
+      ],
+      "minInstances": 1,
+      "region": "us-central1"
     }
+  ],
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
