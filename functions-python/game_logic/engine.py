@@ -11,11 +11,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Define card ranks and suits for a standard deck
 RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
-SUITS = ["♠", "♥", "♦", "♣"]
+SUITS = ["S", "H", "D", "C"]
 
 
 def create_full_deck() -> List[str]:
-    """Creates a list of 52 cards represented as strings like 'A♠' or '10♦'."""
+    """Creates a list of 52 cards represented as strings like '10D(♦)'."""
     return [f"{rank}{suit}" for suit in SUITS for rank in RANKS]
 
 

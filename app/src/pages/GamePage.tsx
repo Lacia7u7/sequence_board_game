@@ -12,35 +12,12 @@ interface Cell {
 }
 
 const getCardImage = (card: string) => {
-  // files live under /assets/cards/1{RANK}{SUIT}.JPG  e.g., 1AS.JPG
+  // files live under /assets/cards/{RANK}{SUIT}.JPG  e.g., AS.JPG
   if (!card || card === 'BONUS') return null;
   const rank = card.slice(0, -1);
   const suit = card.slice(-1);
-  const rankMap: Record<string, string> = {
-    A: 'A',
-    '2': '2',
-    '3': '3',
-    '4': '4',
-    '5': '5',
-    '6': '6',
-    '7': '7',
-    '8': '8',
-    '9': '9',
-    '10': '10',
-    J: 'J',
-    Q: 'Q',
-    K: 'K',
-  };
-  const suitMap: Record<string, string> = {
-    '♠': 'S',
-    '♥': 'H',
-    '♦': 'D',
-    '♣': 'C',
-  };
-  const r = rankMap[rank];
-  const s = suitMap[suit];
-  if (!r || !s) return null;
-  return `/assets/cards/${r}${s}.png`;
+  if (!rank || !suit) return null;
+  return `/assets/cards/${rank}${suit}.png`;
 };
 
 const GamePage: React.FC = () => {

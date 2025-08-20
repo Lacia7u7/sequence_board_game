@@ -20,11 +20,71 @@ from firebase_admin import firestore as admin_fs
 from google.cloud.firestore import Client, Transaction
 from firebase_functions import https_fn, options
 
-# Región y timeout
-options.set_global_options(region="us-central1", timeout_sec=60)
+# -------------------------
+# Región y timeout (<= 3600 para Gen2 HTTP/callable)
+# -------------------------
+options.set_global_options(region="us-central1", timeout_sec=3000)
 
+# -------------------------
+# Helper de depuración (PyCharm/DataSpell Remote Debug - pydevd)
+# -------------------------
+import os
+
+def ide_attach(port: int = 5678, suspend: bool = True, host: str = "127.0.0.1") -> None:
+    """
+    Attach to PyCharm/DataSpell Debug Server using pydevd_pycharm.
+    Uses the snake_case kwargs that your installed pydevd expects.
+    Safe: prints diagnostics and won't raise if attach fails.
+    """
+    if os.getenv("PYCHARM_DEBUG") != "1":
+        return
+
+    try:
+        import pydevd_pycharm
+    except Exception as e:
+        print("[pydevd] import failed:", e)
+        return
+
+    try:
+        # call using the signature your installed module exposes
+        pydevd_pycharm.settrace(
+            host=host,
+            stdout_to_server=True,
+            stderr_to_server=True,
+            port=port,
+            suspend=suspend,
+        )
+        print(f"[pydevd] connected to IDE at {host}:{port}")
+        return
+    except TypeError as e:
+        # Should not happen for your reported version, but keep a fallback
+        print("[pydevd] settrace TypeError:", e)
+
+    # Fallback attempts (positional / minimal) — extra safety for other builds
+    try:
+        pydevd_pycharm.settrace(host, True, True, port, suspend)
+        print(f"[pydevd] connected (positional) to {host}:{port}")
+        return
+    except Exception as e:
+        print("[pydevd] positional fallback failed:", e)
+
+    try:
+        pydevd_pycharm.settrace(host=host, port=port, suspend=suspend)
+        print(f"[pydevd] connected (minimal) to {host}:{port}")
+        return
+    except Exception as e:
+        print("[pydevd] minimal fallback failed:", e)
+
+    print("[pydevd] all attach attempts failed")
+
+
+# -------------------------
 # Admin SDK
+# -------------------------
 if not firebase_admin._apps:
+    # Asegúrate de tener configuradas las variables de emulador si depuras local:
+    #   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+    #   FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
     firebase_admin.initialize_app()
 
 db: Client = admin_fs.client()
@@ -55,7 +115,7 @@ def _read_board_cells() -> List[List[str]]:
     # Lee el JSON del tablero si existe; si no, fallback 10x10 vacío.
     board_file = os.path.join(
         os.path.dirname(__file__),
-        "..", "..", "app", "public", "boards", "standard_10x10.json",
+         "public", "boards", "standard_10x10.json",
     )
     try:
         with open(board_file, "r", encoding="utf-8") as f:
@@ -336,6 +396,9 @@ def _txn_respond_friend_request(
 
 @https_fn.on_call()
 def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
+    # ¡PON TU BREAKPOINT AQUÍ! El IDE se conectará cuando PYCHARM_DEBUG=1.
+    ide_attach(port=5678, suspend=True)
+
     uid = _require_uid(req)
     data = req.data or {}
     config = data.get("config", {}) or {}
