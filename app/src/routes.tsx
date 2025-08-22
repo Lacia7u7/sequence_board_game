@@ -166,10 +166,10 @@ const Lobby: React.FC = () => {
 // A very simple board display
 const Game: React.FC = () => {
   const [board, setBoard] = useState<Array<Array<{ card: string; chip: any }>>>([]);
-  const [hand, setHand] = useState<string[]>(['A♠', 'K♥', 'J']);
+  const [hand, setHand] = useState<string[]>(['AH', 'KD']);
   useEffect(() => {
     // load board from JSON for display
-    import('../public/boards/standard_10x10.json').then((json) => {
+    import('../public/assets/boards/standard_10x10.json').then((json) => {
       const cells = (json as any).cells as string[][];
       const rows = cells.map((row) => row.map((card) => ({ card, chip: null })));
       setBoard(rows);

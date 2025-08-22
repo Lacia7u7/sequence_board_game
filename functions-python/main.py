@@ -17,8 +17,11 @@ from typing import Any, Dict, List, Optional
 
 import firebase_admin
 from firebase_admin import firestore as admin_fs
+from firebase_functions.https_fn import FunctionsErrorCode, HttpsError
 from google.cloud.firestore import Client, Transaction
 from firebase_functions import https_fn, options
+
+from game_logic.errors import EngineError, ErrorCode
 
 # -------------------------
 # Región y timeout (<= 3600 para Gen2 HTTP/callable)
@@ -108,14 +111,19 @@ def _uid_or_none(req: https_fn.CallableRequest) -> Optional[str]:
 def _require_uid(req: https_fn.CallableRequest) -> str:
     uid = _uid_or_none(req)
     if not uid:
-        raise https_fn.HttpsError(code="unauthenticated", message="Authentication required.")
+        # Unify unauthenticated across the app
+        raise HttpsError(
+            FunctionsErrorCode.UNAUTHENTICATED,
+            ErrorCode.ERR_UNAUTHENTICATED.value,
+            details={"error": ErrorCode.ERR_UNAUTHENTICATED.value},
+        )
     return uid
 
 def _read_board_cells() -> List[List[str]]:
     # Lee el JSON del tablero si existe; si no, fallback 10x10 vacío.
     board_file = os.path.join(
         os.path.dirname(__file__),
-         "public", "boards", "standard_10x10.json",
+         "assets", "boards", "standard_10x10.json",
     )
     try:
         with open(board_file, "r", encoding="utf-8") as f:
@@ -174,6 +182,8 @@ def _txn_create_match(
         "hands": {},
         "boardRows": board_rows,  # <-- no nested arrays
         "sequences": {str(i): 0 for i in range(match_data["config"]["teams"])},
+        "sequencesMeta": [],          # <-- NEW
+        "sequenceCells": [],          # <-- NEW
         "winners": [],
         "lastMove": None,
         "roundCount": 0,
@@ -185,11 +195,11 @@ def _txn_create_match(
 
 @admin_fs.transactional
 def _txn_claim_seat(
-        transaction: Transaction,
-        match_ref,
-        seat_code: str,
-        uid: Optional[str],
-        display_name: Optional[str],
+    transaction: Transaction,
+    match_ref,
+    seat_code: str,
+    uid: Optional[str],
+    display_name: Optional[str],
 ) -> str:
     players = list(match_ref.collection("players").stream(transaction=transaction))
     claimed_seat_id: Optional[str] = None
@@ -198,21 +208,33 @@ def _txn_claim_seat(
         pd = p.to_dict()
         if pd.get("seatCode") == seat_code:
             if pd.get("uid"):
-                raise https_fn.HttpsError("already-exists", "Seat already taken.")
+                raise HttpsError(
+                    FunctionsErrorCode.ALREADY_EXISTS,
+                    ErrorCode.ERR_SEAT_TAKEN.value,
+                    details={"error": ErrorCode.ERR_SEAT_TAKEN.value},
+                )
             claimed_seat_id = p.id
             seat_ref = match_ref.collection("players").document(claimed_seat_id)
-            transaction.update(seat_ref, {
-                "uid": uid,
-                "displayName": display_name,
-                "connected": True,
-                "lastPingAt": admin_fs.SERVER_TIMESTAMP,
-                "isReady": True,
-            })
+            transaction.update(
+                seat_ref,
+                {
+                    "uid": uid,
+                    "displayName": display_name,
+                    "connected": True,
+                    "lastPingAt": admin_fs.SERVER_TIMESTAMP,
+                    "isReady": True,
+                },
+            )
             break
 
     if claimed_seat_id is None:
-        raise https_fn.HttpsError("invalid-argument", "Invalid seat code.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INVALID_SEAT_CODE.value,
+            details={"error": ErrorCode.ERR_INVALID_SEAT_CODE.value},
+        )
     return claimed_seat_id
+
 
 @admin_fs.transactional
 def _txn_start_game(transaction: Transaction, match_ref, rng_seed: int) -> None:
@@ -261,33 +283,49 @@ def _txn_start_game(transaction: Transaction, match_ref, rng_seed: int) -> None:
 
 @admin_fs.transactional
 def _txn_apply_move(
-        transaction: Transaction,
-        match_ref,
-        seat_id: str,
-        move_type: str,
-        card: Optional[str],
-        target: Optional[Dict[str, int]],
-        removed: Optional[Dict[str, int]],
+    transaction: Transaction,
+    match_ref,
+    seat_id: str,
+    move_type: str,
+    card: Optional[str],
+    target: Optional[Dict[str, int]],
+    removed: Optional[Dict[str, int]],
 ) -> None:
     m_snap = match_ref.get(transaction=transaction)
     if not m_snap.exists:
-        raise https_fn.HttpsError("not-found", "Match not found.")
+        raise HttpsError(
+            FunctionsErrorCode.NOT_FOUND,
+            ErrorCode.ERR_MATCH_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_MATCH_NOT_FOUND.value},
+        )
     m_data = m_snap.to_dict()
     if m_data.get("status") != "active":
-        raise https_fn.HttpsError("failed-precondition", "Match not active.")
+        raise HttpsError(
+            FunctionsErrorCode.FAILED_PRECONDITION,
+            ErrorCode.ERR_MATCH_NOT_ACTIVE.value,
+            details={"error": ErrorCode.ERR_MATCH_NOT_ACTIVE.value},
+        )
 
     state_ref = match_ref.collection("state").document("state")
     st_snap = state_ref.get(transaction=transaction)
     st_data = st_snap.to_dict() or {}
 
     if st_data.get("currentSeatId") != seat_id:
-        raise https_fn.HttpsError("permission-denied", "ERR_NOT_YOUR_TURN")
+        raise HttpsError(
+            FunctionsErrorCode.PERMISSION_DENIED,
+            ErrorCode.ERR_NOT_YOUR_TURN.value,
+            details={"error": ErrorCode.ERR_NOT_YOUR_TURN.value},
+        )
 
     if move_type not in ("timeout-skip", "burn"):
         hands = st_data.get("hands", {})
         hand = list(hands.get(seat_id, []))
         if card not in hand:
-            raise https_fn.HttpsError("invalid-argument", "Card not in hand")
+            raise HttpsError(
+                FunctionsErrorCode.INVALID_ARGUMENT,
+                ErrorCode.ERR_CARD_NOT_IN_HAND.value,
+                details={"error": ErrorCode.ERR_CARD_NOT_IN_HAND.value},
+            )
 
     players = list(match_ref.collection("players").stream(transaction=transaction))
     team_index = None
@@ -296,11 +334,30 @@ def _txn_apply_move(
             team_index = p.to_dict().get("teamIndex")
             break
     if team_index is None:
-        raise https_fn.HttpsError("invalid-argument", "Seat not found")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_SEAT_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_SEAT_NOT_FOUND.value},
+        )
 
-    new_state, move_record = apply_move_to_state(
-        st_data, seat_id, team_index, move_type, card, target, removed, m_data["config"]
-    )
+    try:
+        new_state, move_record = apply_move_to_state(
+            st_data, seat_id, team_index, move_type, card, target, removed, m_data["config"]
+        )
+    except EngineError as ee:
+        print("EngineError:", ee.code.value, ee.details)
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ee.code.value,
+            details={"error": ee.code.value, "meta": ee.details},
+        )
+    except Exception as e:
+        print("Unexpected error in apply_move_to_state:", e)
+        raise HttpsError(
+            FunctionsErrorCode.INTERNAL,
+            ErrorCode.ERR_INTERNAL.value,
+            details={"error": ErrorCode.ERR_INTERNAL.value},
+        )
 
     transaction.update(state_ref, new_state)
 
@@ -311,13 +368,17 @@ def _txn_apply_move(
     cur_idx = next((i for i, d in enumerate(players_sorted) if d.id == seat_id), 0)
     nxt_idx = (cur_idx + 1) % len(players_sorted)
     next_seat_id = players_sorted[nxt_idx].id
-    transaction.update(state_ref, {
-        "currentSeatId": next_seat_id,
-        "turnIndex": (st_data.get("turnIndex", 0) + 1),
-    })
+    transaction.update(
+        state_ref,
+        {
+            "currentSeatId": next_seat_id,
+            "turnIndex": (st_data.get("turnIndex", 0) + 1),
+        },
+    )
 
     if new_state.get("winners"):
         transaction.update(match_ref, {"status": "finished"})
+
 
 @admin_fs.transactional
 def _txn_finalize_stats(transaction: Transaction, match_ref) -> None:
@@ -397,12 +458,10 @@ def _txn_respond_friend_request(
 @https_fn.on_call()
 def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
     # ¡PON TU BREAKPOINT AQUÍ! El IDE se conectará cuando PYCHARM_DEBUG=1.
-    ide_attach(port=5678, suspend=True)
-
     uid = _require_uid(req)
     data = req.data or {}
     config = data.get("config", {}) or {}
-    public = bool(data.get("public", False))
+    public = bool(data.get("assets", False))
     require_seat_codes = not public
 
     teams = int(config.get("teams", 2))
@@ -441,7 +500,7 @@ def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
             "turnSeconds": int(config.get("turnSeconds", 60)),
             "totalMinutes": int(config.get("totalMinutes", 30)),
             "requireSeatCodes": require_seat_codes,
-            "public": public,
+            "assets": public,
         },
         "security": {
             "joinCode": join_code,
@@ -465,7 +524,7 @@ def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
 
 @https_fn.on_call()
 def join_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
-    uid = _uid_or_none(req)  # espectador posible
+    uid = _uid_or_none(req)  # spectator allowed
     data = req.data or {}
     match_id = data.get("matchId")
     join_code = data.get("joinCode")
@@ -473,19 +532,31 @@ def join_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
     display_name = (data.get("displayName") or "").strip() or ("Anonymous" if uid is None else None)
 
     if not match_id:
-        raise https_fn.HttpsError("invalid-argument", "matchId required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
 
     match_ref = db.collection("matches").document(match_id)
     snap = match_ref.get()
     if not snap.exists:
-        raise https_fn.HttpsError("not-found", "Match not found.")
+        raise HttpsError(
+            FunctionsErrorCode.NOT_FOUND,
+            ErrorCode.ERR_MATCH_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_MATCH_NOT_FOUND.value},
+        )
     match_data = snap.to_dict()
 
-    is_public = bool(match_data.get("config", {}).get("public", False))
+    is_public = bool(match_data.get("config", {}).get("assets", False))
     if not is_public:
         expected = match_data.get("security", {}).get("joinCode")
         if not join_code or join_code != expected:
-            raise https_fn.HttpsError("permission-denied", "Invalid join code.")
+            raise HttpsError(
+                FunctionsErrorCode.PERMISSION_DENIED,
+                ErrorCode.ERR_INVALID_JOIN_CODE.value,
+                details={"error": ErrorCode.ERR_INVALID_JOIN_CODE.value},
+            )
 
     claimed_seat_id: Optional[str] = None
     if seat_code:
@@ -515,8 +586,10 @@ def start_if_ready(req: https_fn.CallableRequest) -> Dict[str, Any]:
 
 @https_fn.on_call()
 def submit_move(req: https_fn.CallableRequest) -> Dict[str, Any]:
-    _ = _uid_or_none(req)  # opcional
+    _ = _uid_or_none(req)  # optional auth for spectators
     data = req.data or {}
+    ide_attach(port=5678, suspend=True)  # optional debugger
+
 
     match_id = data.get("matchId")
     seat_id = data.get("seatId")
@@ -526,7 +599,11 @@ def submit_move(req: https_fn.CallableRequest) -> Dict[str, Any]:
     removed = data.get("removed")
 
     if not match_id or not seat_id or not move_type:
-        raise https_fn.HttpsError("invalid-argument", "matchId, seatId and type are required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
 
     match_ref = db.collection("matches").document(match_id)
     transaction = db.transaction()
@@ -535,22 +612,28 @@ def submit_move(req: https_fn.CallableRequest) -> Dict[str, Any]:
 
 @https_fn.on_call()
 def get_public_state(req: https_fn.CallableRequest) -> Dict[str, Any]:
-    """Devuelve el estado público y reconstruye `board` 2D para el cliente."""
     data = req.data or {}
     match_id = data.get("matchId")
     seat_id = data.get("seatId")
 
     if not match_id:
-        raise https_fn.HttpsError("invalid-argument", "matchId required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
 
     state_ref = db.collection("matches").document(match_id).collection("state").document("state")
     snap = state_ref.get()
     if not snap.exists:
-        raise https_fn.HttpsError("not-found", "State not found.")
+        raise HttpsError(
+            FunctionsErrorCode.NOT_FOUND,
+            ErrorCode.ERR_STATE_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_STATE_NOT_FOUND.value},
+        )
     st = snap.to_dict() or {}
 
     pub = {k: v for k, v in st.items() if k not in ("hands", "boardRows")}
-    # reconstruir 2D board para la respuesta HTTP (no se guarda en Firestore)
     if "boardRows" in st:
         pub["board"] = [row.get("cells", []) for row in st["boardRows"]]
     if seat_id:
@@ -566,11 +649,19 @@ def post_message(req: https_fn.CallableRequest) -> Dict[str, Any]:
     team_only = bool(data.get("teamOnly", False))
 
     if not match_id or not text:
-        raise https_fn.HttpsError("invalid-argument", "matchId and text required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
 
     match_ref = db.collection("matches").document(match_id)
     if not match_ref.get().exists:
-        raise https_fn.HttpsError("not-found", "Match not found.")
+        raise HttpsError(
+            FunctionsErrorCode.NOT_FOUND,
+            ErrorCode.ERR_MATCH_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_MATCH_NOT_FOUND.value},
+        )
 
     display = "Anonymous"
     team_index = None
@@ -600,7 +691,11 @@ def heartbeat(req: https_fn.CallableRequest) -> Dict[str, Any]:
     match_id = data.get("matchId")
     seat_id = data.get("seatId")
     if not match_id or not seat_id:
-        raise https_fn.HttpsError("invalid-argument", "matchId and seatId required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
     player_ref = db.collection("matches").document(match_id).collection("players").document(seat_id)
     player_ref.update({"connected": True, "lastPingAt": admin_fs.SERVER_TIMESTAMP})
     return {"ok": True}
@@ -610,16 +705,24 @@ def finalize_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
     data = req.data or {}
     match_id = data.get("matchId")
     if not match_id:
-        raise https_fn.HttpsError("invalid-argument", "matchId required.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INPUT_MISSING.value,
+            details={"error": ErrorCode.ERR_INPUT_MISSING.value},
+        )
 
     match_ref = db.collection("matches").document(match_id)
-    snap = match_ref.get()
-    if not snap.exists:
-        raise https_fn.HttpsError("not-found", "Match not found.")
+    if not match_ref.get().exists:
+        raise HttpsError(
+            FunctionsErrorCode.NOT_FOUND,
+            ErrorCode.ERR_MATCH_NOT_FOUND.value,
+            details={"error": ErrorCode.ERR_MATCH_NOT_FOUND.value},
+        )
 
     transaction = db.transaction()
     _txn_finalize_stats(transaction, match_ref)
     return {"ok": True}
+
 
 @https_fn.on_call()
 def send_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
@@ -627,14 +730,20 @@ def send_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
     data = req.data or {}
     to_uid = data.get("toUid")
     if not to_uid or to_uid == from_uid:
-        raise https_fn.HttpsError("invalid-argument", "Invalid toUid.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INVALID_TO_UID.value,
+            details={"error": ErrorCode.ERR_INVALID_TO_UID.value},
+        )
     fr_ref = db.collection("friendRequests").document()
-    fr_ref.set({
-        "fromUid": from_uid,
-        "toUid": to_uid,
-        "status": "pending",
-        "createdAt": admin_fs.SERVER_TIMESTAMP,
-    })
+    fr_ref.set(
+        {
+            "fromUid": from_uid,
+            "toUid": to_uid,
+            "status": "pending",
+            "createdAt": admin_fs.SERVER_TIMESTAMP,
+        }
+    )
     return {"ok": True, "requestId": fr_ref.id}
 
 @https_fn.on_call()
@@ -644,9 +753,25 @@ def respond_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
     req_id = data.get("requestId")
     action = data.get("action")
     if action not in ("accept", "decline"):
-        raise https_fn.HttpsError("invalid-argument", "Invalid action.")
+        raise HttpsError(
+            FunctionsErrorCode.INVALID_ARGUMENT,
+            ErrorCode.ERR_INVALID_ACTION.value,
+            details={"error": ErrorCode.ERR_INVALID_ACTION.value},
+        )
 
     fr_ref = db.collection("friendRequests").document(req_id)
     transaction = db.transaction()
-    _txn_respond_friend_request(transaction, fr_ref, uid, action)
+    try:
+        _txn_respond_friend_request(transaction, fr_ref, uid, action)
+    except HttpsError as he:
+        # bubble up shaped errors (e.g., not found / permission)
+        raise he
+    except Exception:
+        # If _txn_respond_friend_request raises generic exceptions, convert here
+        raise HttpsError(
+            FunctionsErrorCode.PERMISSION_DENIED,
+            ErrorCode.ERR_NOT_AUTHORIZED.value,
+            details={"error": ErrorCode.ERR_NOT_AUTHORIZED.value},
+        )
     return {"ok": True}
+

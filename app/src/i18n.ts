@@ -5,6 +5,7 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   en: {
     translation: {
+      // existing top-level labels
       welcome: 'Welcome to Sequence Online',
       login: 'Login',
       signup: 'Sign Up',
@@ -23,10 +24,59 @@ const resources = {
       players: 'Players',
       matchCreated: 'Match Created',
       goToLobby: 'Go to Lobby',
+
+      // UI used by GamePage (safe to keep here)
+      ui: {
+        loading: 'Loading...',
+        gameBoard: 'Game Board',
+        boardNotReady: 'Board not ready yet…',
+        players: 'Players',
+        ai: 'AI',
+        youSuffix: ' (You)',
+        teamN: 'Team {{n}}',
+        winnerTeamN: 'Winner: Team {{n}}',
+        burn: 'Burn Card',
+        wildJack: 'Wild Jack',
+        removeJack: 'Remove Jack',
+        jacksCannotBeBurned: 'Jacks cannot be burned',
+      },
+        errors: {
+        ERR_GENERIC: 'Something went wrong.',
+        ERR_INTERNAL: 'Internal server error. Try again later.',
+        ERR_UNAUTHENTICATED: 'You need to sign in.',
+        ERR_PERMISSION_DENIED: 'You do not have permission.',
+        ERR_NOT_AUTHORIZED: 'You are not authorized for that action.',
+        ERR_INPUT_MISSING: 'Required input is missing.',
+        ERR_MATCH_NOT_FOUND: 'Match not found.',
+        ERR_STATE_NOT_FOUND: 'Game state not found.',
+        ERR_MATCH_NOT_ACTIVE: 'Match is not active.',
+        ERR_INVALID_JOIN_CODE: 'Invalid join code.',
+        ERR_INVALID_SEAT_CODE: 'Invalid seat code.',
+        ERR_SEAT_TAKEN: 'That seat is already taken.',
+        ERR_SEAT_NOT_FOUND: 'Seat not found.',
+        ERR_NOT_YOUR_TURN: "It's not your turn.",
+        ERR_CARD_NOT_IN_HAND: 'That card is not in your hand.',
+        ERR_CARD_BLOCKED: 'You can only burn if that card has no legal move.',
+        ERR_NOT_MATCHING_CARD: 'That move does not match the board.',
+        ERR_TARGET_OCCUPIED: 'That spot is already taken.',
+        ERR_UNKNOWN_MOVE: 'Unknown move.',
+        ERR_INVALID_ACTION: 'Invalid action.',
+        ERR_REQUEST_NOT_FOUND: 'Request not found.',
+        ERR_INVALID_TO_UID: 'Invalid recipient.',
+        ERR_INVALID_JACK_USE: "That Jack can't be used for that action.",
+        ERR_CANNOT_REMOVE_OWN_CHIP: "You cannot remove your own team’s chip.",
+      },
+      hints: {
+        HINT_JACK_WILD: 'Wild Jack: place on any free non-bonus square.',
+        HINT_JACK_REMOVE: 'Cut Jack: click an opponent chip to remove.',
+        HINT_JACK_REMOVE_PICK_CHIP: 'Select an opponent chip to remove.',
+      },
     },
   },
+
   es: {
     translation: {
+      // existing top-level labels
       welcome: 'Bienvenido a Sequence Online',
       login: 'Iniciar sesión',
       signup: 'Registrarse',
@@ -45,6 +95,54 @@ const resources = {
       players: 'Jugadores',
       matchCreated: 'Partida creada',
       goToLobby: 'Ir a la sala',
+
+      // UI used by GamePage
+      ui: {
+        loading: 'Cargando…',
+        gameBoard: 'Tablero',
+        boardNotReady: 'El tablero aún no está listo…',
+        players: 'Jugadores',
+        ai: 'IA',
+        youSuffix: ' (Tú)',
+        teamN: 'Equipo {{n}}',
+        winnerTeamN: 'Ganador: Equipo {{n}}',
+        burn: 'Descartar carta',
+        wildJack: 'Comodín (Jack)',
+        removeJack: 'Jack para quitar',
+        jacksCannotBeBurned: 'Los Jacks no se pueden descartar',
+      },
+
+      errors: {
+        ERR_GENERIC: 'Ocurrió un error.',
+        ERR_INTERNAL: 'Error interno del servidor. Intenta más tarde.',
+        ERR_UNAUTHENTICATED: 'Debes iniciar sesión.',
+        ERR_PERMISSION_DENIED: 'No tienes permisos.',
+        ERR_NOT_AUTHORIZED: 'No estás autorizado para esa acción.',
+        ERR_INPUT_MISSING: 'Faltan datos requeridos.',
+        ERR_MATCH_NOT_FOUND: 'No se encontró la partida.',
+        ERR_STATE_NOT_FOUND: 'No se encontró el estado del juego.',
+        ERR_MATCH_NOT_ACTIVE: 'La partida no está activa.',
+        ERR_INVALID_JOIN_CODE: 'Código de acceso inválido.',
+        ERR_INVALID_SEAT_CODE: 'Código de asiento inválido.',
+        ERR_SEAT_TAKEN: 'Ese asiento ya está ocupado.',
+        ERR_SEAT_NOT_FOUND: 'No se encontró el asiento.',
+        ERR_NOT_YOUR_TURN: 'No es tu turno.',
+        ERR_CARD_NOT_IN_HAND: 'Esa carta no está en tu mano.',
+        ERR_CARD_BLOCKED: 'Solo puedes quemar si esa carta no tiene jugadas legales.',
+        ERR_NOT_MATCHING_CARD: 'La jugada no coincide con el tablero.',
+        ERR_TARGET_OCCUPIED: 'Esa casilla ya está ocupada.',
+        ERR_UNKNOWN_MOVE: 'Movimiento desconocido.',
+        ERR_INVALID_ACTION: 'Acción inválida.',
+        ERR_REQUEST_NOT_FOUND: 'Solicitud no encontrada.',
+        ERR_INVALID_TO_UID: 'Destinatario inválido.',
+        ERR_INVALID_JACK_USE: 'Ese Jack no se puede usar para esa acción.',
+        ERR_CANNOT_REMOVE_OWN_CHIP: 'No puedes quitar una ficha de tu propio equipo.',
+      },
+      hints: {
+        HINT_JACK_WILD: 'Jack comodín: colócalo en una casilla libre que no sea bonus.',
+        HINT_JACK_REMOVE: 'Jack cortador: haz clic en una ficha enemiga para quitarla.',
+        HINT_JACK_REMOVE_PICK_CHIP: 'Selecciona una ficha enemiga para quitar.',
+      },
     },
   },
 };
@@ -53,9 +151,7 @@ i18n.use(initReactI18next).init({
   resources,
   lng: 'en',
   fallbackLng: 'en',
-  interpolation: {
-    escapeValue: false,
-  },
+  interpolation: { escapeValue: false },
 });
 
 export default i18n;

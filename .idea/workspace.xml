@@ -5,21 +5,89 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/functions-python/public/boards/standard_10x10.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/general.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.emulator-data/firebase-export-metadata.json" beforeDir="false" afterPath="$PROJECT_DIR$/.emulator-data/firebase-export-metadata.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.emulator-data/firestore_export/firestore_export.overall_export_metadata" beforeDir="false" afterPath="$PROJECT_DIR$/.emulator-data/firestore_export/firestore_export.overall_export_metadata" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/sequence_board_game.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sequence_board_game.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/public/assets/boards/standard_10x10.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/scripts/generate-errors.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/shared/errors.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/lib/callable.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/lib/errorCodes.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/lib/errorHandling.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/functions-python/assets/boards/standard_10x10.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/functions-python/game_logic/errors.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.emulator-data/auth_export/accounts.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/.emulator-data/auth_export/accounts.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.emulator-data/firestore_export/all_namespaces/all_kinds/all_namespaces_all_kinds.export_metadata" beforeDir="false" afterPath="$PROJECT_DIR$/app/.emulator-data/firestore_export/all_namespaces/all_kinds/all_namespaces_all_kinds.export_metadata" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.emulator-data/firestore_export/all_namespaces/all_kinds/output-0" beforeDir="false" afterPath="$PROJECT_DIR$/app/.emulator-data/firestore_export/all_namespaces/all_kinds/output-0" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/.emulator-data/firestore_export/firestore_export.overall_export_metadata" beforeDir="false" afterPath="$PROJECT_DIR$/app/.emulator-data/firestore_export/firestore_export.overall_export_metadata" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/public/boards/standard_10x10.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/public/boards/standard_10x10.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/public/boards/standard_10x10.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/.gitkeep" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/hooks/useShowError.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/10C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/10D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/10H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/10S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/2C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/2D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/2H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/2S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/3C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/3D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/3H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/3S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/4C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/4D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/4H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/4S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/5C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/5D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/5H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/5S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/6C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/6D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/6H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/6S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/7C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/7D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/7H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/7S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/8C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/8D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/8H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/8S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/9C.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/9D.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/9H.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/9S.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/AC.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/AD.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/AH.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/AS.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/JC.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/JD.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/JH.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/JS.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/KC.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/KD.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/KH.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/KS.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/QC.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/QD.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/QH.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/cards/QS.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/markers/.png" beforePathEscaped="$PROJECT_DIR$/app/src/assets/markers/🔴.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/markers/.png" beforePathEscaped="$PROJECT_DIR$/app/src/assets/markers/🔵.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/markers/.png" beforePathEscaped="$PROJECT_DIR$/app/src/assets/markers/🟡.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/assets/markers/.png" beforePathEscaped="$PROJECT_DIR$/app/src/assets/markers/🟢.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/i18n.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/i18n.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/pages/GamePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/pages/GamePage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/firebase.json" beforeDir="false" afterPath="$PROJECT_DIR$/firebase.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/routes.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/routes.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/firebase-export-1755718516796IHo0mO/firestore_export/all_namespaces/all_kinds/all_namespaces_all_kinds.export_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/firebase-export-1755718516796IHo0mO/firestore_export/all_namespaces/all_kinds/output-0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/firebase-export-1755718516796IHo0mO/firestore_export/firestore_export.overall_export_metadata" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/functions-python/game_logic/engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions-python/game_logic/engine.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/functions-python/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions-python/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions-python/public/boards/standard_10x10.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,6 +98,8 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Python Script" />
+        <option value="TypeScript File" />
+        <option value="JavaScript File" />
       </list>
     </option>
   </component>
@@ -46,6 +116,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/functions-python/venv/Lib/site-packages/google/cloud/firestore_v1/transaction.py" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 6
@@ -64,22 +137,32 @@
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/functions-python",
+    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/app/src/assets",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "npm.build.executor": "Run",
+    "npm.gen:errors.executor": "Run",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "E:\\sequence_game_board\\sequence_board_game\\app\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\app\src\assets" />
       <recent name="E:\sequence_game_board\sequence_board_game\functions-python" />
     </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\app\public\assets" />
+      <recent name="E:\sequence_game_board\sequence_board_game\app\public" />
+      <recent name="E:\sequence_game_board\sequence_board_game\app" />
+      <recent name="E:\sequence_game_board\sequence_board_game\app\src" />
+    </key>
   </component>
-  <component name="RunManager" selected="Python Debug Server.Unnamed">
+  <component name="RunManager" selected="npm.gen:errors">
     <configuration name="Unnamed" type="PyRemoteDebugConfigurationType" factoryName="Python Remote Debug" nameIsGenerated="true">
       <module name="sequence_board_game" />
       <option name="PORT" value="5678" />
@@ -116,8 +199,30 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/app/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="build" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="gen:errors" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/app/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="gen:errors" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.gen:errors" />
+        <item itemvalue="npm.build" />
         <item itemvalue="Python.general" />
       </list>
     </recent_temporary>
@@ -139,7 +244,9 @@
       <updated>1755723858141</updated>
       <workItem from="1755724476100" duration="1820000" />
       <workItem from="1755726452411" duration="432000" />
-      <workItem from="1755726990986" duration="504000" />
+      <workItem from="1755726990986" duration="2541000" />
+      <workItem from="1755793115211" duration="9255000" />
+      <workItem from="1755803697930" duration="9199000" />
     </task>
     <servers />
   </component>
@@ -151,18 +258,78 @@
       <breakpoints>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/functions-python/main.py</url>
-          <line>399</line>
-          <option name="timeStamp" value="3" />
+          <line>460</line>
+          <option name="timeStamp" value="4" />
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/functions-python/main.py</url>
-          <line>401</line>
-          <option name="timeStamp" value="4" />
+          <line>168</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/main.py</url>
+          <line>343</line>
+          <option name="timeStamp" value="31" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/functions-python/main.py</url>
-          <line>160</line>
-          <option name="timeStamp" value="6" />
+          <line>293</line>
+          <option name="timeStamp" value="36" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>61</line>
+          <option name="timeStamp" value="37" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/main.py</url>
+          <line>361</line>
+          <option name="timeStamp" value="40" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/main.py</url>
+          <line>610</line>
+          <option name="timeStamp" value="41" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/main.py</url>
+          <line>593</line>
+          <option name="timeStamp" value="43" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>409</line>
+          <option name="timeStamp" value="45" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/main.py</url>
+          <line>59</line>
+          <option name="timeStamp" value="46" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>462</line>
+          <option name="timeStamp" value="48" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>463</line>
+          <option name="timeStamp" value="49" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>107</line>
+          <option name="timeStamp" value="50" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>209</line>
+          <option name="timeStamp" value="51" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/functions-python/game_logic/engine.py</url>
+          <line>319</line>
+          <option name="timeStamp" value="53" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
