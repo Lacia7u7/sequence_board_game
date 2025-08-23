@@ -31,13 +31,10 @@ options.set_global_options(region="us-central1", timeout_sec=3000)
 # -------------------------
 # Helper de depuración (PyCharm/DataSpell Remote Debug - pydevd)
 # -------------------------
-import os
-
 def ide_attach(port: int = 5678, suspend: bool = True, host: str = "127.0.0.1") -> None:
     """
     Attach to PyCharm/DataSpell Debug Server using pydevd_pycharm.
-    Uses the snake_case kwargs that your installed pydevd expects.
-    Safe: prints diagnostics and won't raise if attach fails.
+    Safe: imprime diagnósticos y no lanza si falla el attach.
     """
     if os.getenv("PYCHARM_DEBUG") != "1":
         return
@@ -49,7 +46,6 @@ def ide_attach(port: int = 5678, suspend: bool = True, host: str = "127.0.0.1") 
         return
 
     try:
-        # call using the signature your installed module exposes
         pydevd_pycharm.settrace(
             host=host,
             stdout_to_server=True,
@@ -60,10 +56,8 @@ def ide_attach(port: int = 5678, suspend: bool = True, host: str = "127.0.0.1") 
         print(f"[pydevd] connected to IDE at {host}:{port}")
         return
     except TypeError as e:
-        # Should not happen for your reported version, but keep a fallback
         print("[pydevd] settrace TypeError:", e)
 
-    # Fallback attempts (positional / minimal) — extra safety for other builds
     try:
         pydevd_pycharm.settrace(host, True, True, port, suspend)
         print(f"[pydevd] connected (positional) to {host}:{port}")
@@ -82,15 +76,41 @@ def ide_attach(port: int = 5678, suspend: bool = True, host: str = "127.0.0.1") 
 
 
 # -------------------------
-# Admin SDK
+# Admin SDK (lazy init)
 # -------------------------
-if not firebase_admin._apps:
-    # Asegúrate de tener configuradas las variables de emulador si depuras local:
-    #   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
-    #   FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
-    firebase_admin.initialize_app()
+_APP: Optional[firebase_admin.App] = None
+_DB: Optional[Client] = None
 
-db: Client = admin_fs.client()
+
+def init_app_once() -> firebase_admin.App:
+    """Inicializa firebase_admin una sola vez (soporta ADC en Cloud Functions
+    y GOOGLE_APPLICATION_CREDENTIALS local)."""
+    global _APP
+    if _APP is not None:
+        return _APP
+    try:
+        # Si ya hay un app, úsalo
+        _APP = firebase_admin.get_app()
+    except ValueError:
+        # Inicializa con credenciales por defecto (ADC). En local funcionará
+        # si tienes GOOGLE_APPLICATION_CREDENTIALS; en GCP usa la SA del runtime.
+        _APP = firebase_admin.initialize_app()
+    return _APP
+
+
+def get_db() -> Client:
+    """Obtiene el cliente de Firestore lazily."""
+    global _DB
+    if _DB is None:
+        init_app_once()
+        _DB = admin_fs.client()
+    return _DB
+
+
+# Asegura que exista la app por defecto PARA LA VERIFICACIÓN DE CALLABLES.
+# Esto no crea Firestore ni toca credenciales hasta que se llame a get_db().
+init_app_once()
+
 
 # --- Motor del juego (tuyo) ---
 from game_logic.engine import (
@@ -102,11 +122,11 @@ from game_logic.engine import (
 # -------------------------
 # Utilidades
 # -------------------------
-
 def _uid_or_none(req: https_fn.CallableRequest) -> Optional[str]:
     if req.auth and getattr(req.auth, "uid", None):
         return req.auth.uid
     return None
+
 
 def _require_uid(req: https_fn.CallableRequest) -> str:
     uid = _uid_or_none(req)
@@ -119,11 +139,14 @@ def _require_uid(req: https_fn.CallableRequest) -> str:
         )
     return uid
 
+
 def _read_board_cells() -> List[List[str]]:
     # Lee el JSON del tablero si existe; si no, fallback 10x10 vacío.
     board_file = os.path.join(
         os.path.dirname(__file__),
-         "assets", "boards", "standard_10x10.json",
+        "assets",
+        "boards",
+        "standard_10x10.json",
     )
     try:
         with open(board_file, "r", encoding="utf-8") as f:
@@ -134,6 +157,7 @@ def _read_board_cells() -> List[List[str]]:
     except Exception:
         pass
     return [["" for _ in range(10)] for _ in range(10)]
+
 
 def _cards_per_player(total_seats: int) -> int:
     if total_seats == 2:
@@ -148,16 +172,16 @@ def _cards_per_player(total_seats: int) -> int:
         return 3
     return 4
 
+
 # -------------------------
 # Helpers transaccionales
 # -------------------------
-
 @admin_fs.transactional
 def _txn_create_match(
-        transaction: Transaction,
-        match_ref,
-        match_data: Dict[str, Any],
-        seats: Dict[str, Dict[str, Any]],
+    transaction: Transaction,
+    match_ref,
+    match_data: Dict[str, Any],
+    seats: Dict[str, Dict[str, Any]],
 ) -> None:
     # 1) Crear match y asientos
     transaction.set(match_ref, match_data)
@@ -182,8 +206,8 @@ def _txn_create_match(
         "hands": {},
         "boardRows": board_rows,  # <-- no nested arrays
         "sequences": {str(i): 0 for i in range(match_data["config"]["teams"])},
-        "sequencesMeta": [],          # <-- NEW
-        "sequenceCells": [],          # <-- NEW
+        "sequencesMeta": [],
+        "sequenceCells": [],
         "winners": [],
         "lastMove": None,
         "roundCount": 0,
@@ -192,6 +216,7 @@ def _txn_create_match(
     }
     state_ref = match_ref.collection("state").document("state")
     transaction.set(state_ref, state_doc)
+
 
 @admin_fs.transactional
 def _txn_claim_seat(
@@ -272,14 +297,18 @@ def _txn_start_game(transaction: Transaction, match_ref, rng_seed: int) -> None:
     current_seat = players_sorted[0].id  # podrías randomizar
 
     state_ref = match_ref.collection("state").document("state")
-    transaction.update(state_ref, {
-        "turnIndex": 0,
-        "currentSeatId": current_seat,
-        "phase": "play",
-        "deck": {"cards": deck_cards, "discardPile": [], "burnedCards": []},
-        "hands": hands,
-    })
+    transaction.update(
+        state_ref,
+        {
+            "turnIndex": 0,
+            "currentSeatId": current_seat,
+            "phase": "play",
+            "deck": {"cards": deck_cards, "discardPile": [], "burnedCards": []},
+            "hands": hands,
+        },
+    )
     transaction.update(match_ref, {"status": "active"})
+
 
 @admin_fs.transactional
 def _txn_apply_move(
@@ -389,6 +418,7 @@ def _txn_finalize_stats(transaction: Transaction, match_ref) -> None:
     if m_data.get("status") != "finished":
         return
 
+    db = get_db()
     st_snap = match_ref.collection("state").document("state").get(transaction=transaction)
     winners = (st_snap.to_dict() or {}).get("winners", [])
     teams = int(m_data["config"]["teams"])
@@ -405,8 +435,12 @@ def _txn_finalize_stats(transaction: Transaction, match_ref) -> None:
         stats = user_data.get(
             "stats",
             {
-                "wins2": 0, "losses2": 0, "draws2": 0,
-                "wins3": 0, "losses3": 0, "draws3": 0,
+                "wins2": 0,
+                "losses2": 0,
+                "draws2": 0,
+                "wins3": 0,
+                "losses3": 0,
+                "draws3": 0,
                 "sequencesMade": 0,
             },
         )
@@ -419,12 +453,13 @@ def _txn_finalize_stats(transaction: Transaction, match_ref) -> None:
             stats[f"losses{mode}"] = stats.get(f"losses{mode}", 0) + 1
         transaction.set(user_ref, {"stats": stats}, merge=True)
 
+
 @admin_fs.transactional
 def _txn_respond_friend_request(
-        transaction: Transaction,
-        fr_ref,
-        uid: str,
-        action: str,
+    transaction: Transaction,
+    fr_ref,
+    uid: str,
+    action: str,
 ) -> None:
     fr_snap = fr_ref.get(transaction=transaction)
     if not fr_snap.exists:
@@ -433,6 +468,7 @@ def _txn_respond_friend_request(
     if fr.get("toUid") != uid:
         raise https_fn.HttpsError("permission-denied", "Not authorized.")
 
+    db = get_db()
     transaction.update(fr_ref, {"status": action})
     if action == "accept":
         from_uid = fr.get("fromUid")
@@ -451,13 +487,12 @@ def _txn_respond_friend_request(
         transaction.set(from_ref, {"friends": list(from_friends)}, merge=True)
         transaction.set(to_ref, {"friends": list(to_friends)}, merge=True)
 
+
 # -------------------------
 # Endpoints callable
 # -------------------------
-
 @https_fn.on_call()
 def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
-    # ¡PON TU BREAKPOINT AQUÍ! El IDE se conectará cuando PYCHARM_DEBUG=1.
     uid = _require_uid(req)
     data = req.data or {}
     config = data.get("config", {}) or {}
@@ -467,6 +502,7 @@ def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
     teams = int(config.get("teams", 2))
     players_per_team = int(config.get("playersPerTeam", 2))
 
+    db = get_db()
     match_ref = db.collection("matches").document()
     match_id = match_ref.id
     join_code = "".join(random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
@@ -522,6 +558,7 @@ def create_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
         "seatCodes": {i: seats[i]["seatCode"] for i in seats},
     }
 
+
 @https_fn.on_call()
 def join_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
     uid = _uid_or_none(req)  # spectator allowed
@@ -538,6 +575,7 @@ def join_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
 
+    db = get_db()
     match_ref = db.collection("matches").document(match_id)
     snap = match_ref.get()
     if not snap.exists:
@@ -565,6 +603,7 @@ def join_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
 
     return {"ok": True, "seatId": claimed_seat_id}
 
+
 @https_fn.on_call()
 def start_if_ready(req: https_fn.CallableRequest) -> Dict[str, Any]:
     data = req.data or {}
@@ -572,6 +611,7 @@ def start_if_ready(req: https_fn.CallableRequest) -> Dict[str, Any]:
     if not match_id:
         raise https_fn.HttpsError("invalid-argument", "matchId required.")
 
+    db = get_db()
     match_ref = db.collection("matches").document(match_id)
     snap = match_ref.get()
     if not snap.exists:
@@ -584,12 +624,13 @@ def start_if_ready(req: https_fn.CallableRequest) -> Dict[str, Any]:
     _txn_start_game(transaction, match_ref, rng_seed=m.get("rngSeed", int(time.time() * 1000)))
     return {"ok": True}
 
+
 @https_fn.on_call()
 def submit_move(req: https_fn.CallableRequest) -> Dict[str, Any]:
+    print("DEBUG: req.auth =", getattr(req, "auth", None))
     _ = _uid_or_none(req)  # optional auth for spectators
     data = req.data or {}
     ide_attach(port=5678, suspend=True)  # optional debugger
-
 
     match_id = data.get("matchId")
     seat_id = data.get("seatId")
@@ -605,10 +646,12 @@ def submit_move(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
 
+    db = get_db()
     match_ref = db.collection("matches").document(match_id)
     transaction = db.transaction()
     _txn_apply_move(transaction, match_ref, seat_id, move_type, card, target, removed)
     return {"ok": True}
+
 
 @https_fn.on_call()
 def get_public_state(req: https_fn.CallableRequest) -> Dict[str, Any]:
@@ -623,6 +666,7 @@ def get_public_state(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
 
+    db = get_db()
     state_ref = db.collection("matches").document(match_id).collection("state").document("state")
     snap = state_ref.get()
     if not snap.exists:
@@ -640,6 +684,7 @@ def get_public_state(req: https_fn.CallableRequest) -> Dict[str, Any]:
         pub["hand"] = st.get("hands", {}).get(seat_id, [])
     return pub
 
+
 @https_fn.on_call()
 def post_message(req: https_fn.CallableRequest) -> Dict[str, Any]:
     uid = _uid_or_none(req)
@@ -655,6 +700,7 @@ def post_message(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
 
+    db = get_db()
     match_ref = db.collection("matches").document(match_id)
     if not match_ref.get().exists:
         raise HttpsError(
@@ -684,6 +730,7 @@ def post_message(req: https_fn.CallableRequest) -> Dict[str, Any]:
     match_ref.collection("chat").add(chat_doc)
     return {"ok": True}
 
+
 @https_fn.on_call()
 def heartbeat(req: https_fn.CallableRequest) -> Dict[str, Any]:
     uid = _require_uid(req)
@@ -696,9 +743,11 @@ def heartbeat(req: https_fn.CallableRequest) -> Dict[str, Any]:
             ErrorCode.ERR_INPUT_MISSING.value,
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
+    db = get_db()
     player_ref = db.collection("matches").document(match_id).collection("players").document(seat_id)
     player_ref.update({"connected": True, "lastPingAt": admin_fs.SERVER_TIMESTAMP})
     return {"ok": True}
+
 
 @https_fn.on_call()
 def finalize_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
@@ -711,6 +760,7 @@ def finalize_match(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INPUT_MISSING.value},
         )
 
+    db = get_db()
     match_ref = db.collection("matches").document(match_id)
     if not match_ref.get().exists:
         raise HttpsError(
@@ -735,6 +785,7 @@ def send_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
             ErrorCode.ERR_INVALID_TO_UID.value,
             details={"error": ErrorCode.ERR_INVALID_TO_UID.value},
         )
+    db = get_db()
     fr_ref = db.collection("friendRequests").document()
     fr_ref.set(
         {
@@ -745,6 +796,7 @@ def send_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
         }
     )
     return {"ok": True, "requestId": fr_ref.id}
+
 
 @https_fn.on_call()
 def respond_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
@@ -759,6 +811,7 @@ def respond_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
             details={"error": ErrorCode.ERR_INVALID_ACTION.value},
         )
 
+    db = get_db()
     fr_ref = db.collection("friendRequests").document(req_id)
     transaction = db.transaction()
     try:
@@ -767,11 +820,10 @@ def respond_friend_request(req: https_fn.CallableRequest) -> Dict[str, Any]:
         # bubble up shaped errors (e.g., not found / permission)
         raise he
     except Exception:
-        # If _txn_respond_friend_request raises generic exceptions, convert here
+        # Si _txn_respond_friend_request lanza exceptions genéricas, convertimos aquí
         raise HttpsError(
             FunctionsErrorCode.PERMISSION_DENIED,
             ErrorCode.ERR_NOT_AUTHORIZED.value,
             details={"error": ErrorCode.ERR_NOT_AUTHORIZED.value},
         )
     return {"ok": True}
-

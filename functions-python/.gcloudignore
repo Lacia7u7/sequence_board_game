@@ -1,0 +1,17 @@
+venv/
+venv/**
+.venv/
+.venv/**
+env/
+env/**
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+.vscode/
+*.egg-info/
+*.dist-info/
+.pydevd*
+*.log
+.DS_Store
+"@

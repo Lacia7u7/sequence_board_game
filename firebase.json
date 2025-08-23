@@ -36,11 +36,14 @@
       "runtime": "python312",
       "codebase": "functions-python",
       "ignore": [
-        "**/node_modules/**",
-        "**/.venv/**"
+      	"**/node_modules/**",
+      	"**/venv/**",
+      	"**/.venv/**",
+      	"**/env/**"
       ],
-      "minInstances": 1,
-      "region": "us-central1"
+      "minInstances": 0,
+      "region": "us-central1",
+      "invoker": "public"
     }
   ],
   "firestore": {
