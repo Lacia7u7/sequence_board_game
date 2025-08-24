@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=67"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sequence-training"
+version = "0.1.0"
+description = "Standalone Sequence engine and RL training stack"
+readme = "training/README.md"
+requires-python = ">=3.10"
+authors = [{name="You"}]
+dependencies = ["gymnasium", "numpy", "torch"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["training*"]
