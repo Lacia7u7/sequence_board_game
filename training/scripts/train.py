@@ -1,86 +1,134 @@
-import json, argparse, torch, torch.optim as optim
+# training/scripts/train.py
+from __future__ import annotations
+import argparse
+import json
+import os
+from typing import Any, Dict, Tuple
+
+import numpy as np
+import torch
+
 from ..envs.sequence_env import SequenceEnv
-from ..envs.vectorized_env import VectorizedEnv
-from ..algorithms.ppo_lstm import policy as ppo_policy
+from ..algorithms.ppo_lstm.policy import PPORecurrentPolicy
+from ..algorithms.ppo_lstm.learner import PPOLearner, PPOConfig
 from ..algorithms.ppo_lstm import storage as ppo_storage
-from ..algorithms.ppo_lstm import learner as ppo_learner
-from ..algorithms.ppo_lstm import utils as ppo_utils
-from ..utils import logging as log_utils, jsonio
+
+
+def load_config(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--override", type=str, default=None)
+    parser.add_argument("--config", type=str, required=True, help="Path to JSON config.")
+    parser.add_argument("--override", type=str, default=None, help='JSON string of dot-path overrides e.g. \'{"training.lr":1e-4}\'')
     args = parser.parse_args()
-    config = json.load(open(args.config))
+
+    cfg = load_config(args.config)
     if args.override:
-        config = jsonio.override_config(config, json.loads(args.override))
+        overrides = json.loads(args.override)
+        for k, v in overrides.items():
+            parts = k.split(".")
+            node = cfg
+            for p in parts[:-1]:
+                node = node.setdefault(p, {})
+            node[parts[-1]] = v
 
-    num_envs = config["training"].get("num_envs", 1)
-    envs = VectorizedEnv(num_envs, lambda: SequenceEnv(config)) if num_envs > 1 else SequenceEnv(config)
-    seed = config["training"].get("seed", None)
-    if seed is not None:
-        if isinstance(envs, VectorizedEnv):
-            envs.reset(seeds=[seed+i for i in range(num_envs)])
-        else:
-            envs.reset(seed=seed)
+    env = SequenceEnv(cfg)
+    obs, info = env.reset()
+    obs_channels = int(obs.shape[0])
+    action_dim = int(env.action_dim)
 
-    dummy_env = SequenceEnv(config) if isinstance(envs, VectorizedEnv) else envs
-    obs_shape = dummy_env.observation_space.shape
-    action_dim = dummy_env.action_space.n
-    conv_channels = config["model"].get("conv_channels", [64,64,128,128])
-    lstm_hidden = config["model"].get("lstm_hidden", 256)
-    lstm_layers = config["model"].get("lstm_layers", 1)
-    policy = ppo_policy.PPOPolicy(obs_shape, action_dim, conv_channels, lstm_hidden, lstm_layers)
-    if torch.cuda.is_available(): policy = policy.cuda()
-    optimizer = optim.Adam(policy.parameters(), lr=config["training"]["lr"])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    rollout_length = config["training"]["rollout_length"]
-    nenv = num_envs if isinstance(envs, VectorizedEnv) else 1
-    storage = ppo_storage.RolloutStorage(rollout_length, nenv, obs_shape, lstm_hidden)
+    model_cfg = cfg.get("model", {})
+    policy = PPORecurrentPolicy(
+        obs_channels=obs_channels,
+        action_dim=action_dim,
+        conv_channels=tuple(model_cfg.get("conv_channels", [64, 64, 128])),
+        lstm_hidden=int(model_cfg.get("lstm_hidden", 512)),
+        lstm_layers=int(model_cfg.get("lstm_layers", 1)),
+    ).to(device)
 
-    total_updates = config["training"]["total_updates"]
-    log = log_utils.Logger(config)
+    train_cfg = cfg.get("training", {})
+    ppo_cfg = PPOConfig(
+        lr=float(train_cfg.get("lr", 2.5e-4)),
+        clip_eps=float(train_cfg.get("clip_eps", 0.2)),
+        value_coef=float(train_cfg.get("value_coef", 0.5)),
+        entropy_coef=float(train_cfg.get("entropy_coef", 0.015)),
+        max_grad_norm=float(train_cfg.get("max_grad_norm", 1.0)),
+        epochs=int(train_cfg.get("epochs", 2)),
+        minibatch_size=int(train_cfg.get("minibatch_size", 4096)),
+        amp=bool(train_cfg.get("amp", True)),
+    )
 
-    for update in range(1, total_updates+1):
-        lr = ppo_utils.linear_lr_decay(config["training"]["lr"], update-1, total_updates)
-        for g in optimizer.param_groups: g["lr"] = lr
-        if isinstance(envs, VectorizedEnv):
-            obs_list, _info = envs.reset()
-        else:
-            ob, _info = envs.reset(); obs_list = [ob]
+    rollout_length = int(train_cfg.get("rollout_length", 64))
+    total_updates = int(train_cfg.get("total_updates", 10))
 
-        obs_tensor = torch.tensor(obs_list, dtype=torch.float32)
-        storage.obs[0].copy_(obs_tensor)
-        hidden = policy.init_hidden(batch_size=nenv)
+    storage = ppo_storage.RolloutStorage(
+        rollout_length=rollout_length,
+        num_envs=1,
+        obs_shape=obs.shape,
+        hidden_size=policy.lstm_hidden,
+        num_layers=policy.lstm.num_layers,
+    ).to(device)
 
-        for step in range(rollout_length):
-            obs_batch = obs_tensor.cuda() if torch.cuda.is_available() else obs_tensor
-            action, log_prob, value, new_hidden = policy.act(obs_batch, action_mask=None, hidden_state=hidden)
-            action_cpu = action.cpu().numpy()
-            if isinstance(envs, VectorizedEnv):
-                obs_list, reward_list, done_list, trunc_list, info_list = envs.step(action_cpu.tolist())
-            else:
-                ob2, rw, dn, tr, info = envs.step(int(action_cpu[0]))
-                obs_list = [ob2]; reward_list = [rw]; done_list = [dn]; trunc_list = [tr]
-            obs_tensor = torch.tensor(obs_list, dtype=torch.float32)
-            rewards = torch.tensor(reward_list, dtype=torch.float32)
-            dones = torch.tensor([1.0 if d or t else 0.0 for d,t in zip(done_list, trunc_list)], dtype=torch.float32)
-            storage.insert(obs_tensor, action.cpu(), log_prob.cpu(), value.cpu(), rewards.cpu(), dones.cpu(), hidden[0].cpu(), hidden[1].cpu())
+    # Initialize
+    obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)  # (1,C,H,W)
+    storage.set_initial_obs(obs_t)
+    hidden = policy.init_hidden(batch_size=1)
+
+    learner = PPOLearner(policy, ppo_cfg)
+
+    for update in range(total_updates):
+        for t in range(rollout_length):
+            mask = torch.tensor(info.get("legal_mask"), dtype=torch.float32, device=device).unsqueeze(0)
+            h_pre, c_pre = hidden
+
+            with torch.no_grad(), torch.cuda.amp.autocast(enabled=learner.scaler.is_enabled()):
+                action, log_prob, value, new_hidden = policy.act(obs_t, action_mask=mask, hidden_state=hidden)
+
+            action_int = int(action.item())
+            obs_next, reward, terminated, truncated, info = env.step(action_int)
+
+            obs_next_t = torch.tensor(obs_next, dtype=torch.float32, device=device).unsqueeze(0)
+            reward_t = torch.tensor([reward], dtype=torch.float32, device=device)
+            done_t = torch.tensor([1.0 if (terminated or truncated) else 0.0], dtype=torch.float32, device=device)
+
+            storage.insert(
+                obs_next=obs_next_t,
+                actions=action.detach().cpu(),
+                log_probs=log_prob.detach().cpu(),
+                values=value.detach().cpu(),
+                rewards=reward_t.detach().cpu(),
+                dones=done_t.detach().cpu(),
+                h_pre=h_pre.detach().cpu(),
+                c_pre=c_pre.detach().cpu(),
+            )
+
+            obs_t = obs_next_t
             hidden = new_hidden
+
+            if terminated or truncated:
+                obs, info = env.reset()
+                obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
+                hidden = policy.init_hidden(batch_size=1)
+
+        # Bootstrap with final hidden state & last obs
+        storage.set_last_hidden(hidden[0].detach().cpu(), hidden[1].detach().cpu())
         with torch.no_grad():
-            last_obs = storage.obs[-1]
-            last_value = policy(last_obs.cuda() if torch.cuda.is_available() else last_obs)[1].cpu()
-        advantages, returns = storage.compute_returns_and_advantages(last_value, config["training"]["gamma"], config["training"]["gae_lambda"])
-        storage.returns = returns
+            last_logits, last_value, _ = policy(obs_t, hidden_state=hidden)
+            last_value = last_value.detach().cpu()
+        advantages, _returns = storage.compute_returns_and_advantages(last_value, float(train_cfg.get("gamma", 0.997)), float(train_cfg.get("gae_lambda", 0.95)))
 
-        learner = ppo_learner.PPOLearner(policy, optimizer, config["training"]["clip_eps"], config["training"]["value_coef"], config["training"]["entropy_coef"], config["training"]["max_grad_norm"])
-        pl, vl, ent = learner.update(storage)
-        log.log_metrics(update, {"policy_loss": pl, "value_loss": vl, "entropy": ent})
-        storage.step = 0
+        logs = learner.update(storage, advantages, device)
+        print(f"update {update+1}/{total_updates} | " + " | ".join(f"{k}:{v:.4f}" for k, v in logs.items()))
 
-    torch.save(policy.state_dict(), f"{config['logging'].get('logdir','runs')}/policy_final.pth")
-    print("Training finished. Model saved.")
+    # Save final checkpoint
+    os.makedirs(cfg.get("logging", {}).get("logdir", "runs"), exist_ok=True)
+    torch.save(policy.state_dict(), os.path.join(cfg.get("logging", {}).get("logdir", "runs"), "policy_final.pt"))
+
 
 if __name__ == "__main__":
     main()

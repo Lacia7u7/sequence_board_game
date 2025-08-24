@@ -1,17 +1,43 @@
-import math
+# training/encoders/probability_layers.py
+from __future__ import annotations
 from typing import Dict
 
-def probability_cell_playable_next(deck_counts: Dict[str, int], total_remaining: int, cell_card: str) -> float:
-    if cell_card == "BONUS":
+
+def _count(deck_counts: Dict[str, int], card: str) -> int:
+    return max(0, int(deck_counts.get(card, 0)))
+
+
+def probability_cell_playable_next(deck_counts: Dict[str, int], total_remaining: int, card: str) -> float:
+    """
+    Probability that after drawing one card (end of this turn),
+    the agent will have a card enabling play on this cell on the next turn.
+    PUBLIC-only approximation:
+      p = p_X + p_J2 - p_X*p_J2, with p_X = c_X/R, p_J2 = (c_JC+c_JD)/R
+    """
+    if total_remaining <= 0:
         return 0.0
-    count_match = deck_counts.get(cell_card, 0)
-    count_wild = deck_counts.get("JC", 0) + deck_counts.get("JD", 0)
-    p_match = count_match / total_remaining if total_remaining > 0 else 0.0
-    p_wild = count_wild / total_remaining if total_remaining > 0 else 0.0
-    return p_match + p_wild - (p_match * p_wild)
+    c_x = _count(deck_counts, card)
+    c_j2 = _count(deck_counts, "JC") + _count(deck_counts, "JD")
+    p_x = c_x / total_remaining
+    p_j2 = c_j2 / total_remaining
+    p = p_x + p_j2 - (p_x * p_j2)
+    return float(max(0.0, min(1.0, p)))
 
-def probability_opponent_target_next(deck_counts: Dict[str, int], total_remaining: int, cell_card: str) -> float:
-    return probability_cell_playable_next(deck_counts, total_remaining, cell_card)
 
-def probability_cell_playable_k_steps(p_next: float, k: int) -> float:
-    return 1.0 - ((1.0 - p_next) ** k)
+def probability_cell_playable_k_steps(p1: float, k: int) -> float:
+    """
+    Mean-field propagation: assume independence and approximate k steps ahead
+    as 1 - (1 - p1)^k (chance of at least one enabling draw across k rounds).
+    """
+    if k <= 0:
+        return float(p1)
+    q = (1.0 - p1) ** k
+    return float(max(0.0, min(1.0, 1.0 - q)))
+
+
+def probability_opponent_target_next(deck_counts: Dict[str, int], total_remaining: int, card: str) -> float:
+    """
+    PUBLIC-only estimate of opponent having the enabling card or a two-eyed jack.
+    Uses the same formula as the agent but is generic (no private info).
+    """
+    return probability_cell_playable_next(deck_counts, total_remaining, card)

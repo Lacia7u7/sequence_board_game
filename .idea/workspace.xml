@@ -5,8 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/trainingfoldergenerator.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/sequence_board_game.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sequence_board_game.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/selfplay_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/selfplay_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/encoders/board_encoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/encoders/board_encoder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/encoders/probability_layers.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/encoders/probability_layers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/envs/sequence_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/envs/sequence_env.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,6 +30,7 @@
         <option value="TypeScript File" />
         <option value="JavaScript File" />
         <option value="Python Script" />
+        <option value="Jupyter Notebook" />
       </list>
     </option>
   </component>
@@ -54,10 +66,11 @@
     "Python.general.executor": "Run",
     "Python.trainingfoldergenerator.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/app/src/assets",
+    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/training",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -72,6 +85,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\training" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\src\assets" />
       <recent name="E:\sequence_game_board\sequence_board_game\functions-python" />
     </key>
@@ -192,7 +206,8 @@
       <workItem from="1755793115211" duration="9255000" />
       <workItem from="1755803697930" duration="9199000" />
       <workItem from="1755835424986" duration="2046000" />
-      <workItem from="1755991780108" duration="1784000" />
+      <workItem from="1755991780108" duration="3543000" />
+      <workItem from="1756058041320" duration="5163000" />
     </task>
     <servers />
   </component>

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: sequence-training
+Version: 0.1.0
+Summary: Standalone Sequence engine and RL training stack
+Author: You
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: gymnasium
+Requires-Dist: numpy
+Requires-Dist: torch

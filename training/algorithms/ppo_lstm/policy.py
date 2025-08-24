@@ -1,57 +1,96 @@
+# training/algorithms/ppo_lstm/policy.py
+from __future__ import annotations
+from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class PPOPolicy(nn.Module):
-    def __init__(self, observation_shape, action_dim, conv_channels, lstm_hidden=256, lstm_layers=1):
+
+class MaskedCategorical(torch.distributions.Categorical):
+    @staticmethod
+    def masked_logits(logits: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
+        if mask is None:
+            return logits
+        # mask shape: (B, A)
+        very_neg = torch.finfo(logits.dtype).min / 2
+        return torch.where(mask > 0.5, logits, very_neg)
+
+    @classmethod
+    def from_logits_and_mask(cls, logits: torch.Tensor, mask: Optional[torch.Tensor]):
+        masked = cls.masked_logits(logits, mask)
+        return cls(logits=masked)
+
+
+class PPORecurrentPolicy(nn.Module):
+    """
+    Conv trunk -> LSTM -> policy & value heads.
+    Exposes act() and evaluate_actions() that accept optional action masks and hidden states.
+    """
+    def __init__(self, obs_channels: int, action_dim: int, conv_channels=(64, 64, 128), lstm_hidden=512, lstm_layers=1):
         super().__init__()
-        C, H, W = observation_shape
-        convs = []
-        in_c = C
-        for out_c in conv_channels:
-            convs.append(nn.Conv2d(in_c, out_c, kernel_size=3, padding=1))
-            convs.append(nn.ReLU())
-            convs.append(nn.LayerNorm([out_c, H, W]))
-            in_c = out_c
-        self.conv_net = nn.Sequential(*convs) if convs else nn.Identity()
-        conv_out = in_c * H * W
-        self.lstm = nn.LSTM(conv_out, lstm_hidden, num_layers=lstm_layers, batch_first=True)
-        self.policy_head = nn.Linear(lstm_hidden, action_dim)
-        self.value_head = nn.Linear(lstm_hidden, 1)
+        c_in = obs_channels
+        layers = []
+        prev = c_in
+        for ch in conv_channels:
+            layers += [
+                nn.Conv2d(prev, ch, kernel_size=3, padding=1, bias=False),
+                nn.GroupNorm(num_groups=8 if ch >= 32 else 1, num_channels=ch),
+                nn.SiLU(),
+            ]
+            prev = ch
+        self.conv = nn.Sequential(*layers)
+        conv_out_ch = prev
+        self.flatten = nn.Flatten(start_dim=1)
+        self.spatial_dim = 10 * 10 * conv_out_ch
 
-    def init_hidden(self, batch_size: int = 1):
-        num_layers = self.lstm.num_layers; hidden = self.lstm.hidden_size
-        h = torch.zeros(num_layers, batch_size, hidden, device=next(self.parameters()).device)
-        c = torch.zeros(num_layers, batch_size, hidden, device=next(self.parameters()).device)
-        return (h, c)
+        self.lstm = nn.LSTM(input_size=self.spatial_dim, hidden_size=lstm_hidden, num_layers=lstm_layers, batch_first=True)
+        self.pi = nn.Linear(lstm_hidden, action_dim)
+        self.v = nn.Linear(lstm_hidden, 1)
 
-    def forward(self, obs: torch.Tensor, hidden_state=None):
+        self.lstm_hidden = lstm_hidden
+        self.action_dim = action_dim
+
+    def init_hidden(self, batch_size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
+        h0 = torch.zeros(self.lstm.num_layers, batch_size, self.lstm_hidden, device=next(self.parameters()).device)
+        c0 = torch.zeros(self.lstm.num_layers, batch_size, self.lstm_hidden, device=next(self.parameters()).device)
+        return h0, c0
+
+    def _encode(self, obs: torch.Tensor) -> torch.Tensor:
+        # obs: (B, C, H, W)
+        x = self.conv(obs)
+        x = self.flatten(x)  # (B, spatial_dim)
+        return x
+
+    def forward(self, obs: torch.Tensor, hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
         B = obs.size(0)
-        conv_out = self.conv_net(obs).view(B, -1).unsqueeze(1)
+        enc = self._encode(obs).unsqueeze(1)  # (B, 1, spatial_dim)
         if hidden_state is None:
-            hidden_state = self.init_hidden(B)
-        lstm_out, lstm_hidden = self.lstm(conv_out, hidden_state)
-        x = lstm_out[:, -1, :]
-        logits = self.policy_head(x)
-        value = self.value_head(x).squeeze(-1)
-        return logits, value, lstm_hidden
+            h0, c0 = self.init_hidden(B)
+        else:
+            h0, c0 = hidden_state
+        out, (hn, cn) = self.lstm(enc, (h0, c0))  # out: (B, 1, H)
+        last = out[:, -1, :]  # (B, H)
+        logits = self.pi(last)
+        value = self.v(last).squeeze(-1)
+        return logits, value, (hn, cn)
 
-    def act(self, obs: torch.Tensor, action_mask: torch.Tensor = None, hidden_state=None):
-        logits, value, new_hidden = self(obs, hidden_state)
-        if action_mask is not None:
-            logits = logits + (action_mask + 1e-8).log()
-        probs = F.softmax(logits, dim=-1)
-        dist = torch.distributions.Categorical(probs)
+    @torch.no_grad()
+    def act(self, obs: torch.Tensor, action_mask: Optional[torch.Tensor] = None, hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
+        logits, value, (hn, cn) = self.forward(obs, hidden_state=hidden_state)
+        dist = MaskedCategorical.from_logits_and_mask(logits, action_mask)
         action = dist.sample()
         log_prob = dist.log_prob(action)
-        return action.detach(), log_prob.detach(), value.detach(), new_hidden
+        return action, log_prob, value, (hn, cn)
 
-    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor, action_mask: torch.Tensor = None, hidden_state=None):
-        logits, value, _ = self(obs, hidden_state)
-        if action_mask is not None:
-            logits = logits + (action_mask + 1e-8).log()
-        probs = torch.softmax(logits, dim=-1)
-        dist = torch.distributions.Categorical(probs)
+    def evaluate_actions(
+        self,
+        obs: torch.Tensor,
+        actions: torch.Tensor,
+        action_mask: Optional[torch.Tensor] = None,
+        hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+    ):
+        logits, value, _ = self.forward(obs, hidden_state=hidden_state)
+        dist = MaskedCategorical.from_logits_and_mask(logits, action_mask)
         log_probs = dist.log_prob(actions)
-        entropy = dist.entropy()
+        entropy = dist.entropy().mean()
         return log_probs, entropy, value
