@@ -110,6 +110,7 @@ class SequenceEnv:
                 move = self._resolve_discard_action(self.current_player, idx)
 
         # Step the engine
+        acting_player = self.current_player
         res = self.game_engine.step(move)
         # engine.step might return (state, move_rec, reward, done) OR just (reward, done)
         if isinstance(res, tuple) and len(res) == 4:
@@ -119,6 +120,38 @@ class SequenceEnv:
         else:
             # Fallback: treat as no reward/continue
             reward, done = 0.0, False
+
+        # Inspect updated engine state for winners or board-full condition
+        state = self._state()
+        winners: List[int] = []
+        if isinstance(state, dict):
+            winners = list(state.get("winners", []))
+        elif hasattr(state, "winners"):
+            winners = list(getattr(state, "winners"))  # type: ignore
+
+        board = getattr(state, "board", None)
+        if isinstance(board, list):
+            board_full = all(
+                (board[r][c] is not None or BOARD_LAYOUT[r][c] == "BONUS")
+                for r in range(10)
+                for c in range(10)
+            )
+        else:
+            board_full = all(
+                (self._cell(r, c) is not None or BOARD_LAYOUT[r][c] == "BONUS")
+                for r in range(10)
+                for c in range(10)
+            )
+
+        acting_team = acting_player % self.gconf.teams
+        terminated = bool(done)
+        reward_val = float(reward)
+        if winners:
+            reward_val = 1.0 if acting_team in winners else -1.0
+            terminated = True
+        elif board_full:
+            reward_val = 0.0
+            terminated = True
 
         # Prepare next observation
         self.current_player = self._seat_index()
@@ -131,9 +164,8 @@ class SequenceEnv:
             public=self._public_summary(),
         )
         info = {"current_player": self.current_player, "legal_mask": self._legal_mask(next_legal)}
-        terminated = bool(done)
         truncated = False
-        return obs, float(reward), terminated, truncated, info
+        return obs, reward_val, terminated, truncated, info
 
     # ---------------- Helpers: legality & mapping ----------------
 
