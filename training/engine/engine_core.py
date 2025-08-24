@@ -4,7 +4,7 @@ from .board_layout import BOARD_LAYOUT
 from .state import GameConfig, GameState
 from .errors import EngineError, ErrorCode
 
-_DIRECTIONS = [(0,1,"H"), (1,0,"V"), (1,1,"D1"), (1,-1,"D2")]
+_DIRECTIONS = [(0, 1, "H"), (1, 0, "V"), (1, 1, "D1"), (1, -1, "D2")]
 
 class GameEngine:
     def __init__(self):
@@ -20,7 +20,10 @@ class GameEngine:
         self.game_config = config
         self.deck = Deck()
         self.deck.shuffle(seed=self.random_seed)
+
         total_players = config.teams * config.players_per_team
+
+        # Deal hands: List[List[str]]
         hands: List[List[str]] = []
         for _ in range(total_players):
             hand = []
@@ -30,12 +33,19 @@ class GameEngine:
                     raise RuntimeError("Deck exhausted during initial deal")
                 hand.append(card)
             hands.append(hand)
-        board = [[None for _ in range(10)] for _ in range(10)]
-        seq_count = {team_idx: 0 for team_idx in range(config.teams)}
-        self.state = GameState(hands=hands, board=board, sequences_count=seq_count)
-        self.state.current_player = 0
+
+        # 10x10 board of Optional[int] (team index or None)
+        board: List[List[Optional[int]]] = [[None for _ in range(10)] for _ in range(10)]
+
+        # Per-team sequence counts as Dict[int, int] (int keys!)
+        seq_count: Dict[int, int] = {team_idx: 0 for team_idx in range(config.teams)}
+
+        # Construct state. We pass `sequences=...`; engine will read/write via `sequences_count` alias, too.
+        self.state = GameState(hands=hands, board=board, sequences=seq_count)
+        self.state.current_player = 0        # alias to turn_index
         self.state.round_count = 0
         self.state.winners = []
+        self.state.config = config
         return self.state
 
     def _player_team(self, player_index: int) -> int:
@@ -45,8 +55,8 @@ class GameEngine:
         if self.state is None or self.game_config is None:
             return {}
         hand = self.state.hands[player_index]
-        legal_cell_actions: List[Tuple[int,int]] = []
-        legal_removals: List[Tuple[int,int]] = []
+        legal_cell_actions: List[Tuple[int, int]] = []
+        legal_removals: List[Tuple[int, int]] = []
         legal_discards: List[int] = []
         team = self._player_team(player_index)
 
@@ -55,8 +65,8 @@ class GameEngine:
                 for r in range(10):
                     for c in range(10):
                         if BOARD_LAYOUT[r][c] != "BONUS" and self.state.board[r][c] is None:
-                            if (r,c) not in legal_cell_actions:
-                                legal_cell_actions.append((r,c))
+                            if (r, c) not in legal_cell_actions:
+                                legal_cell_actions.append((r, c))
             elif is_one_eyed_jack(card):
                 allow_adv = bool(self.game_config.allowAdvancedJack)
                 for r in range(10):
@@ -65,25 +75,27 @@ class GameEngine:
                         if chip is not None and chip != team:
                             if BOARD_LAYOUT[r][c] == "BONUS":
                                 continue
-                            if (r,c) in self.state.sequence_cells and not allow_adv:
+                            if (r, c) in self.state.sequence_cells and not allow_adv:
                                 continue
-                            if (r,c) not in legal_removals:
-                                legal_removals.append((r,c))
+                            if (r, c) not in legal_removals:
+                                legal_removals.append((r, c))
             else:
-                positions = [(r,c) for r in range(10) for c in range(10) if BOARD_LAYOUT[r][c] == card]
-                for (r,c) in positions:
+                positions = [(r, c) for r in range(10) for c in range(10) if BOARD_LAYOUT[r][c] == card]
+                for (r, c) in positions:
                     if self.state.board[r][c] is None:
-                        if (r,c) not in legal_cell_actions:
-                            legal_cell_actions.append((r,c))
+                        if (r, c) not in legal_cell_actions:
+                            legal_cell_actions.append((r, c))
 
+        # Discards for dead-end non-jack cards
         for idx, card in enumerate(hand):
             if is_two_eyed_jack(card) or is_one_eyed_jack(card):
                 continue
-            positions = [(r,c) for r in range(10) for c in range(10) if BOARD_LAYOUT[r][c] == card]
-            can_place = any(self.state.board[r][c] is None for (r,c) in positions)
+            positions = [(r, c) for r in range(10) for c in range(10) if BOARD_LAYOUT[r][c] == card]
+            can_place = any(self.state.board[r][c] is None for (r, c) in positions)
             if not can_place:
                 legal_discards.append(idx)
 
+        # If nothing placeable/removable, allow discarding anything
         if not legal_cell_actions and not legal_removals:
             for idx in range(len(hand)):
                 if idx not in legal_discards:
@@ -132,13 +144,15 @@ class GameEngine:
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED, details={"r": r, "c": c})
             if is_two_eyed_jack(card):
                 if BOARD_LAYOUT[r][c] == "BONUS":
-                    raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason":"wild_on_bonus","r":r,"c":c})
+                    raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason": "wild_on_bonus", "r": r, "c": c})
             elif is_one_eyed_jack(card):
                 raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as": "wild/play", "card": card})
             else:
                 expected = BOARD_LAYOUT[r][c]
                 if expected != card:
                     raise EngineError(ErrorCode.ERR_NOT_MATCHING_CARD, details={"expected": expected, "card": card, "r": r, "c": c})
+
+            # Place chip
             hand.remove(card)
             self.state.board[r][c] = team
             self.deck.discard(card)
@@ -146,25 +160,29 @@ class GameEngine:
             if new_card:
                 hand.append(new_card)
 
+            # Sequence detection
             created_sequence = False
             prev_seq = set(self.state.sequence_cells)
             for dr, dc, axis in _DIRECTIONS:
-                run = self._gather_run(r,c,dr,dc,team)
-                new_cells = [(rr,cc) for (rr,cc) in run if (rr,cc) not in prev_seq]
+                run = self._gather_run(r, c, dr, dc, team)
+                new_cells = [(rr, cc) for (rr, cc) in run if (rr, cc) not in prev_seq]
                 if len(new_cells) >= 5:
-                    for (rr,cc) in run:
-                        self.state.sequence_cells.add((rr,cc))
+                    for (rr, cc) in run:
+                        self.state.sequence_cells.add((rr, cc))
                     self.state.sequences_count[team] = self.state.sequences_count.get(team, 0) + 1
                     created_sequence = True
 
-            winners = []
+            # Winners
+            winners: List[int] = []
             needed = self.game_config.win_sequences_needed
             for t, count in self.state.sequences_count.items():
                 if count >= needed:
                     winners.append(t)
             self.state.winners = winners
 
-            full = all((self.state.board[i][j] is not None or BOARD_LAYOUT[i][j] == "BONUS") for i in range(10) for j in range(10))
+            # Full board reset (no winner)
+            full = all((self.state.board[i][j] is not None or BOARD_LAYOUT[i][j] == "BONUS")
+                       for i in range(10) for j in range(10))
             if full and not winners and self.game_config.reset_full_board_no_winner:
                 for i in range(10):
                     for j in range(10):
@@ -188,7 +206,7 @@ class GameEngine:
             if card not in hand:
                 raise EngineError(ErrorCode.ERR_CARD_NOT_IN_HAND, details={"card": card})
             if not is_one_eyed_jack(card):
-                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as":"jack-remove","card":card})
+                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as": "jack-remove", "card": card})
             if removed is None:
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED)
             rr = int(removed["r"]); cc = int(removed["c"])
@@ -199,14 +217,17 @@ class GameEngine:
             if self.state.board[rr][cc] == team:
                 raise EngineError(ErrorCode.ERR_CANNOT_REMOVE_OWN_CHIP, details={"r": rr, "c": cc})
             allow_adv = bool(self.game_config.allowAdvancedJack)
-            if not allow_adv and (rr,cc) in self.state.sequence_cells:
-                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason":"cell_in_sequence","r":rr,"c":cc})
+            if not allow_adv and (rr, cc) in self.state.sequence_cells:
+                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason": "cell_in_sequence", "r": rr, "c": cc})
+
+            # Remove chip
             self.state.board[rr][cc] = None
             hand.remove(card)
             self.deck.discard(card)
             new_card = self.deck.draw()
             if new_card:
                 hand.append(new_card)
+
             move_record["card"] = card
             move_record["target"] = None
             move_record["removed"] = {"r": rr, "c": cc}
@@ -230,7 +251,7 @@ class GameEngine:
         return (chip is not None) and (chip == team)
 
     def _gather_run(self, r: int, c: int, dr: int, dc: int, team: int):
-        run = []
+        run: List[Tuple[int, int]] = []
         rr, cc = r - dr, c - dc
         while 0 <= rr < 10 and 0 <= cc < 10 and self._cell_counts_for_team(rr, cc, team):
             run.insert(0, (rr, cc))
