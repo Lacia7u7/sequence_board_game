@@ -159,9 +159,9 @@ class GameState:
         Return a list of (seq_id, seq_team, cells).
 
         Priority:
-          1) If `sequencesMeta` has structured dicts, build triples from them.
-             Expected keys (any of these): id|seq_id, team|team_id|owner, cells|cell_indices|positions
-          2) Else, if `sequenceCells` is present, treat it as a single sequence with id=0 and team=None.
+          1) If `sequencesMeta` has structured dicts, build triples.
+             Expected keys: id|seq_id, team|team_id|owner, cells|cell_indices|positions
+          2) Else, if `sequenceCells` is present, treat as a single sequence with inferred team if possible.
           3) Else, return an empty list.
         """
         metas = self.sequencesMeta or []
@@ -173,12 +173,37 @@ class GameState:
                 cells = m.get("cells") or m.get("cell_indices") or m.get("positions") or []
                 team = m.get("team") or m.get("team_id") or m.get("owner")
                 seq_id = m.get("id") or m.get("seq_id") or i
+
+                # Infer team if missing and we have a board
+                if team is None and hasattr(self, "board") and isinstance(cells, list):
+                    counts: Dict[int, int] = {}
+                    for rc in cells:
+                        try:
+                            r, c = rc
+                            chip = self.board[int(r)][int(c)]
+                            if chip is not None:
+                                counts[int(chip)] = counts.get(int(chip), 0) + 1
+                        except Exception:
+                            pass
+                    if counts:
+                        team = max(counts, key=counts.get)
+
                 out.append((seq_id, team, list(cells)))
             return out
 
-        # Fallback: treat sequenceCells as a single sequence
+        # Fallback: treat sequenceCells as a single sequence, infer team
         if self.sequenceCells:
-            return [(0, None, [(r, c) for (r, c) in sorted(self.sequenceCells)])]
+            cells = [(r, c) for (r, c) in sorted(self.sequenceCells)]
+            team = None
+            if hasattr(self, "board"):
+                counts: Dict[int, int] = {}
+                for (r, c) in cells:
+                    chip = self.board[int(r)][int(c)]
+                    if chip is not None:
+                        counts[int(chip)] = counts.get(int(chip), 0) + 1
+                if counts:
+                    team = max(counts, key=counts.get)
+            return [(0, team, cells)]
 
         return []
 

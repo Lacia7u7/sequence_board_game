@@ -1,3 +1,4 @@
+# training/engine/engine_core.py
 from typing import List, Optional, Tuple, Dict, Any
 from .cards import Deck, is_two_eyed_jack, is_one_eyed_jack
 from .board_layout import BOARD_LAYOUT
@@ -12,6 +13,7 @@ class GameEngine:
         self.game_config: Optional[GameConfig] = None
         self.state: Optional[GameState] = None
         self.deck: Optional[Deck] = None
+        self._seq_meta_index: set[frozenset[Tuple[int, int]]] = set()
 
     def seed(self, seed: int):
         self.random_seed = seed
@@ -23,7 +25,7 @@ class GameEngine:
 
         total_players = config.teams * config.players_per_team
 
-        # Deal hands: List[List[str]]
+        # Deal hands
         hands: List[List[str]] = []
         for _ in range(total_players):
             hand = []
@@ -34,18 +36,19 @@ class GameEngine:
                 hand.append(card)
             hands.append(hand)
 
-        # 10x10 board of Optional[int] (team index or None)
         board: List[List[Optional[int]]] = [[None for _ in range(10)] for _ in range(10)]
-
-        # Per-team sequence counts as Dict[int, int] (int keys!)
         seq_count: Dict[int, int] = {team_idx: 0 for team_idx in range(config.teams)}
 
-        # Construct state. We pass `sequences=...`; engine will read/write via `sequences_count` alias, too.
         self.state = GameState(hands=hands, board=board, sequences=seq_count)
-        self.state.current_player = 0        # alias to turn_index
+        self.state.current_player = 0
         self.state.round_count = 0
         self.state.winners = []
         self.state.config = config
+
+        # Clear sequence meta structures
+        self.state.sequencesMeta = []
+        self.state.sequence_cells = set()
+        self._seq_meta_index.clear()
         return self.state
 
     def _player_team(self, player_index: int) -> int:
@@ -102,6 +105,62 @@ class GameEngine:
                     legal_discards.append(idx)
 
         return {"place": legal_cell_actions, "remove": legal_removals, "discard": legal_discards}
+
+    # ---- Sequence bookkeeping helpers --------------------------------------
+
+    def _register_sequence_meta(self, team: int, cells: List[Tuple[int, int]], axis: str) -> bool:
+        if self.state is None:
+            return False
+        key = frozenset((int(r), int(c)) for (r, c) in cells)
+        if key in self._seq_meta_index:
+            return False
+        self._seq_meta_index.add(key)
+
+        seq_id = len(self.state.sequencesMeta)
+        self.state.sequencesMeta.append({
+            "id": seq_id,
+            "team": int(team),
+            "cells": [(int(r), int(c)) for (r, c) in cells],
+            "axis": axis,
+        })
+        # Keep legacy set in sync
+        for (rr, cc) in cells:
+            self.state.sequence_cells.add((int(rr), int(cc)))
+        # Bump canonical per-team counter
+        self.state.sequences_count[team] = self.state.sequences_count.get(team, 0) + 1
+        return True
+
+    def _recompute_sequences_full(self) -> None:
+        """Rescan entire board and rebuild sequence meta/counts from scratch."""
+        if self.state is None or self.game_config is None:
+            return
+        # Clear all sequence bookkeeping
+        self.state.sequencesMeta = []
+        self.state.sequence_cells = set()
+        self.state.sequences_count = {team_idx: 0 for team_idx in range(self.game_config.teams)}
+        self._seq_meta_index.clear()
+
+        # For each team, scan lines in each direction; start only at line heads
+        for team in range(self.game_config.teams):
+            for r in range(10):
+                for c in range(10):
+                    if not self._cell_counts_for_team(r, c, team):
+                        continue
+                    for dr, dc, axis in _DIRECTIONS:
+                        pr, pc = r - dr, c - dc
+                        # Only start at the head of a run
+                        if 0 <= pr < 10 and 0 <= pc < 10 and self._cell_counts_for_team(pr, pc, team):
+                            continue
+                        run = self._gather_run(r, c, dr, dc, team)
+                        if len(run) >= 5:
+                            self._register_sequence_meta(team, run, axis)
+
+        # Update winners from rebuilt counts
+        needed = self.game_config.win_sequences_needed
+        winners = [t for t, cnt in self.state.sequences_count.items() if cnt >= needed]
+        self.state.winners = winners
+
+    # ---- Main step ----------------------------------------------------------
 
     def step(self, action: Dict[str, Any]):
         if self.state is None or self.game_config is None or self.deck is None:
@@ -160,27 +219,22 @@ class GameEngine:
             if new_card:
                 hand.append(new_card)
 
-            # Sequence detection
+            # Incremental sequence detection (fast path)
             created_sequence = False
             prev_seq = set(self.state.sequence_cells)
             for dr, dc, axis in _DIRECTIONS:
                 run = self._gather_run(r, c, dr, dc, team)
                 new_cells = [(rr, cc) for (rr, cc) in run if (rr, cc) not in prev_seq]
                 if len(new_cells) >= 5:
-                    for (rr, cc) in run:
-                        self.state.sequence_cells.add((rr, cc))
-                    self.state.sequences_count[team] = self.state.sequences_count.get(team, 0) + 1
-                    created_sequence = True
+                    if self._register_sequence_meta(team, run, axis):
+                        created_sequence = True
 
             # Winners
-            winners: List[int] = []
             needed = self.game_config.win_sequences_needed
-            for t, count in self.state.sequences_count.items():
-                if count >= needed:
-                    winners.append(t)
+            winners: List[int] = [t for t, cnt in self.state.sequences_count.items() if cnt >= needed]
             self.state.winners = winners
 
-            # Full board reset (no winner)
+            # Full board reset (no winner) — clear ALL sequence bookkeeping too
             full = all((self.state.board[i][j] is not None or BOARD_LAYOUT[i][j] == "BONUS")
                        for i in range(10) for j in range(10))
             if full and not winners and self.game_config.reset_full_board_no_winner:
@@ -193,6 +247,11 @@ class GameEngine:
                 self.deck.discard_pile.clear()
                 self.deck.burned_cards.clear()
                 self.deck.shuffle(seed=self.random_seed)
+                # Clear sequences (both meta and counts)
+                self.state.sequencesMeta = []
+                self.state.sequence_cells = set()
+                self.state.sequences_count = {team_idx: 0 for team_idx in range(self.game_config.teams)}
+                self._seq_meta_index.clear()
 
             move_record["card"] = card
             move_record["target"] = {"r": r, "c": c}
@@ -228,9 +287,13 @@ class GameEngine:
             if new_card:
                 hand.append(new_card)
 
+            # >>> NEW: recompute sequences fully after removals (can break sequences)
+            self._recompute_sequences_full()
+
             move_record["card"] = card
             move_record["target"] = None
             move_record["removed"] = {"r": rr, "c": cc}
+            # Optional: you can mark whether any sequence was lost/changed by comparing before/after if you store a snapshot
             self._advance_turn()
             return self.state, move_record
 
@@ -271,7 +334,7 @@ class GameEngine:
             return []
         return list(self.state.winners)
 
-# re-export helpers for convenience in other modules/tests
+# re-export helpers
 BOARD_LAYOUT = BOARD_LAYOUT
 is_one_eyed_jack = is_one_eyed_jack
 is_two_eyed_jack = is_two_eyed_jack

@@ -5,16 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/utils/keys.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/utils/legal_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756147206.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/default.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/tiny-smoke.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/encoders/board_encoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/encoders/board_encoder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/envs/sequence_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/envs/sequence_env.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/engine_core.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/engine_core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -273,23 +267,10 @@
           <line>444</line>
           <option name="timeStamp" value="99" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <condition expression="reward&gt;=0.00001 or reward&lt;=-0.00001" language="Python" />
-          <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
-          <line>149</line>
-          <option name="timeStamp" value="101" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
-          <line>176</line>
-          <option name="timeStamp" value="104" />
-        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
     <watches-manager>
       <configuration name="starter">
-        <watch expression="info" language="Python" />
-        <watch expression="info['move']" language="Python" />
         <watch expression="reward" language="Python" />
       </configuration>
     </watches-manager>
