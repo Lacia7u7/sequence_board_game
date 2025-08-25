@@ -76,12 +76,14 @@ def main():
 
     # Initialize
     obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)  # (1,C,H,W)
-    storage.set_initial_obs(obs_t)
     hidden = policy.init_hidden(batch_size=1)
 
     learner = PPOLearner(policy, ppo_cfg)
 
     for update in range(total_updates):
+        # Start a new rollout by clearing old data and setting the initial observation
+        storage.reset()
+        storage.set_initial_obs(obs_t)
         for t in range(rollout_length):
             mask = torch.tensor(info.get("legal_mask"), dtype=torch.float32, device=device).unsqueeze(0)
             h_pre, c_pre = hidden

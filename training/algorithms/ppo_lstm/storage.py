@@ -51,6 +51,28 @@ class RolloutStorage:
     def set_initial_obs(self, obs0: torch.Tensor):
         self.obs[0].copy_(obs0)
 
+    def reset(self):
+        """Reset internal buffers and step counter.
+
+        RolloutStorage accumulates data over a fixed-length buffer. When
+        starting a new rollout we want to clear any stale values from the
+        previous iteration and reset the write index.  This helper zeros all
+        stored tensors and sets ``step`` back to ``0`` so the next call to
+        :meth:`insert` starts writing from the beginning.
+        """
+        self.step = 0
+        self.obs.zero_()
+        self.actions.zero_()
+        self.log_probs.zero_()
+        self.rewards.zero_()
+        self.dones.zero_()
+        self.values.zero_()
+        self.h_pre.zero_()
+        self.c_pre.zero_()
+        self.h_last.zero_()
+        self.c_last.zero_()
+        self.returns.zero_()
+
     def insert(
         self,
         obs_next: torch.Tensor,
