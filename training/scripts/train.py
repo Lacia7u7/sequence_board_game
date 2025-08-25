@@ -70,6 +70,7 @@ def main():
         rollout_length=rollout_length,
         num_envs=1,
         obs_shape=obs.shape,
+        action_dim=action_dim,
         hidden_size=policy.lstm_hidden,
         num_layers=policy.lstm.num_layers,
     ).to(device)
@@ -107,6 +108,7 @@ def main():
                 dones=done_t.detach().cpu(),
                 h_pre=h_pre.detach().cpu(),
                 c_pre=c_pre.detach().cpu(),
+                action_masks=mask.detach().cpu(),
             )
 
             obs_t = obs_next_t
