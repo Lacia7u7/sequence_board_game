@@ -62,3 +62,4 @@ functions-python/serviceAccountKey.json
 app/src/lib/firebase.ts
 
 training/source/
+.idea/workspace.xml

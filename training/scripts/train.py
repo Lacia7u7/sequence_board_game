@@ -70,23 +70,9 @@ def main():
         device=device,
     )
 
-<<<<<<< Updated upstream
-    storage = ppo_storage.RolloutStorage(
-        rollout_length=rollout_length,
-        num_envs=1,
-        obs_shape=obs.shape,
-        action_dim=action_dim,
-        hidden_size=policy.lstm_hidden,
-        num_layers=policy.lstm.num_layers,
-    ).to(device)
-
-    # Initialize
-    obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)  # (1,C,H,W)
-    hidden = policy.init_hidden(batch_size=1)
-=======
-    obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)  # (N=1,C,H,W)
+    # Initial obs into storage
+    obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)  # (1,C,H,W)
     storage.set_initial_obs(obs_t)
->>>>>>> Stashed changes
 
     # ---- Learner ----
     learner_cfg = PPOConfig(
@@ -103,15 +89,6 @@ def main():
     )
     learner = PPOLearner(policy, learner_cfg, device=device)
 
-<<<<<<< Updated upstream
-    for update in range(total_updates):
-        # Start a new rollout by clearing old data and setting the initial observation
-        storage.reset()
-        storage.set_initial_obs(obs_t)
-        for t in range(rollout_length):
-            mask = torch.tensor(info.get("legal_mask"), dtype=torch.float32, device=device).unsqueeze(0)
-            h_pre, c_pre = hidden
-=======
     # ---- Logging ----
     log = LoggingMux(cfg)
     log.hparams(
@@ -130,7 +107,6 @@ def main():
         },
         {"hparams/created": 1.0},
     )
->>>>>>> Stashed changes
 
     total_updates = int(cfg["training"]["total_updates"])
 
@@ -140,34 +116,23 @@ def main():
     global_step = 0
     t0 = time.time()
 
-<<<<<<< Updated upstream
-            storage.insert(
-                obs_next=obs_next_t,
-                actions=action.detach().cpu(),
-                log_probs=log_prob.detach().cpu(),
-                values=value.detach().cpu(),
-                rewards=reward_t.detach().cpu(),
-                dones=done_t.detach().cpu(),
-                h_pre=h_pre.detach().cpu(),
-                c_pre=c_pre.detach().cpu(),
-                action_masks=mask.detach().cpu(),
-=======
     for update_idx in range(1, total_updates + 1):
         # -------- collect rollout --------
         storage.clear()
+        storage.set_initial_obs(obs_t)  # ensure obs[0] matches current env state
+
         for t in range(rollout_len):
-            legal_mask_np = info.get("legal_mask", None)
-            legal_mask_t = (
-                torch.from_numpy(legal_mask_np).unsqueeze(0).to(device, dtype=torch.float32)
-                if legal_mask_np is not None
-                else None
->>>>>>> Stashed changes
-            )
+            legal_mask_arr = info.get("legal_mask", None)
+            if legal_mask_arr is not None:
+                legal_mask_np = np.asarray(legal_mask_arr, dtype=np.float32)
+                legal_mask_t = torch.from_numpy(legal_mask_np).unsqueeze(0).to(device, dtype=torch.float32)
+            else:
+                legal_mask_t = None
 
             with torch.no_grad():
                 out = policy.act(
-                    obs=obs_t,              # (1,C,H,W)
-                    legal_mask=legal_mask_t,  # (1,A) or None
+                    obs=obs_t,                 # (1,C,H,W)
+                    legal_mask=legal_mask_t,   # (1,A) or None
                     h0=h, c0=c,
                 )
             action = int(out["action"].item())
@@ -199,8 +164,8 @@ def main():
                 values=value_t,
                 rewards=rew_t,
                 dones=done_t,
-                h_pre=h_pre,  # (L,N,H)
-                c_pre=c_pre,  # (L,N,H)
+                h_pre=h_pre,   # (L,N,H)
+                c_pre=c_pre,   # (L,N,H)
                 legal_mask=legal_mask_t,  # (1,A) or None
             )
 
@@ -216,7 +181,7 @@ def main():
         # After rollout, get bootstrap value on last obs and set last hidden state
         with torch.no_grad():
             out_val = policy.forward(obs=obs_t, h0=h, c0=c)
-            last_value = out_val["value"].detach()  # (1,)
+            last_value = out_val["value"].detach()  # (1,1) or (1,)
         storage.set_last_hidden(h_last=h, c_last=c)
 
         # GAE + returns
