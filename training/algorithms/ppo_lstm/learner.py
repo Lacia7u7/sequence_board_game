@@ -33,6 +33,7 @@ class PPOLearner:
         old_log_probs = storage.log_probs.reshape(B).to(device)
         returns = storage.returns.reshape(B).to(device)
         adv = advantages.reshape(B).to(device)
+        action_masks = storage.action_masks.reshape(B, storage.action_dim).to(device)
 
         # normalize advantages
         adv = (adv - adv.mean()) / (adv.std() + 1e-8)
@@ -55,10 +56,11 @@ class PPOLearner:
             mb_ret = returns[mb_idx]
             mb_h = h_pre[:, mb_idx, :]
             mb_c = c_pre[:, mb_idx, :]
+            mb_masks = action_masks[mb_idx]
 
             with torch.cuda.amp.autocast(enabled=self.scaler.is_enabled()):
                 new_log, entropy, values = self.policy.evaluate_actions(
-                    mb_obs, mb_actions, action_mask=None, hidden_state=(mb_h, mb_c)
+                    mb_obs, mb_actions, action_mask=mb_masks, hidden_state=(mb_h, mb_c)
                 )
                 ratio = (new_log - mb_old_log).exp()
                 surr1 = ratio * mb_adv

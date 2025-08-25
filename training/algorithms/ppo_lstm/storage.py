@@ -5,16 +5,27 @@ from typing import Tuple
 
 
 class RolloutStorage:
+    """Stores rollouts for PPO with LSTM.
+
+    Besides the usual observations, actions, rewards etc. we also keep the
+    legal-action mask for each environment step so that the learner can
+    reconstruct the masked policy distribution during training.
     """
-    Stores rollouts for PPO with LSTM.
-    We store the PRE-action hidden state (h_pre, c_pre) at each step,
-    and the final hidden state after the last env step for bootstrapping.
-    """
-    def __init__(self, rollout_length: int, num_envs: int, obs_shape, hidden_size: int, num_layers: int):
+
+    def __init__(
+        self,
+        rollout_length: int,
+        num_envs: int,
+        obs_shape,
+        action_dim: int,
+        hidden_size: int,
+        num_layers: int,
+    ):
         self.rollout_length = rollout_length
         self.num_envs = num_envs
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.action_dim = action_dim
 
         self.obs = torch.zeros((rollout_length + 1, num_envs) + tuple(obs_shape), dtype=torch.float32)
         self.actions = torch.zeros((rollout_length, num_envs), dtype=torch.long)
@@ -22,6 +33,10 @@ class RolloutStorage:
         self.rewards = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
         self.dones = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
         self.values = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
+        # mask of legal actions used at each step (t, env, action_dim)
+        self.action_masks = torch.zeros(
+            (rollout_length, num_envs, action_dim), dtype=torch.float32
+        )
 
         # pre-action hidden states at each step
         self.h_pre = torch.zeros((rollout_length, num_layers, num_envs, hidden_size), dtype=torch.float32)
@@ -41,6 +56,7 @@ class RolloutStorage:
         self.rewards = self.rewards.to(device)
         self.dones = self.dones.to(device)
         self.values = self.values.to(device)
+        self.action_masks = self.action_masks.to(device)
         self.h_pre = self.h_pre.to(device)
         self.c_pre = self.c_pre.to(device)
         self.h_last = self.h_last.to(device)
@@ -61,6 +77,7 @@ class RolloutStorage:
         dones: torch.Tensor,
         h_pre: torch.Tensor,
         c_pre: torch.Tensor,
+        action_masks: torch.Tensor,
     ):
         # obs_next is observation after env.step
         self.obs[self.step + 1].copy_(obs_next)
@@ -71,6 +88,7 @@ class RolloutStorage:
         self.dones[self.step].copy_(dones)
         self.h_pre[self.step].copy_(h_pre)
         self.c_pre[self.step].copy_(c_pre)
+        self.action_masks[self.step].copy_(action_masks)
         self.step = (self.step + 1) % self.rollout_length
 
     def set_last_hidden(self, h_last: torch.Tensor, c_last: torch.Tensor):
