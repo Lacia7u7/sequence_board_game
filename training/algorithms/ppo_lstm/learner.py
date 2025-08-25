@@ -45,38 +45,81 @@ class PPOLearner:
         """
         Returns:
           log_probs [B], entropy [], values [B]
-        Tries policy.evaluate_actions first (if available), otherwise uses forward->dist.
+        Prefer policy.evaluate_actions() when available; otherwise call forward()
+        with a robust mask-arg compatibility shim.
         """
-        # Preferred explicit API if available
+        # 1) Preferred explicit API if available
         if hasattr(self.policy, "evaluate_actions"):
-            out = self.policy.evaluate_actions(
-                obs, actions.squeeze(-1),
-                action_mask=masks,
-                hidden_state=(h0, c0)
-            )
-            # Support both tuple and dict forms
-            if isinstance(out, tuple) and len(out) == 3:
-                new_log, entropy, values = out
-            elif isinstance(out, dict):
-                new_log = out["log_prob"]
-                entropy = out.get("entropy", out["dist"].entropy().mean())
-                values = out["value"].squeeze(-1)
-            else:
-                raise RuntimeError("Unknown return type from policy.evaluate_actions")
-            return new_log, entropy, values
+            # Try a few common kwarg names for the mask argument.
+            eval_kwargs_base = dict()
+            # Some policies expect a tuple for hidden state
+            if "hidden_state" in self.policy.evaluate_actions.__code__.co_varnames:
+                eval_kwargs_base["hidden_state"] = (h0, c0)
 
-        # Generic path via forward()
-        kwargs = {"obs": obs, "h0": h0, "c0": c0}
-        if masks is not None:
-            kwargs["legal_mask"] = masks
-        out = self.policy.forward(**kwargs)
-        if "dist" not in out or "value" not in out:
-            raise RuntimeError("policy.forward must return dict with 'dist' and 'value'")
-        dist = out["dist"]
-        values = out["value"].squeeze(-1)
-        log_probs = dist.log_prob(actions.squeeze(-1))
-        entropy = dist.entropy().mean()
-        return log_probs, entropy, values
+            def _try_eval_with(name: Optional[str]):
+                kw = dict(eval_kwargs_base)
+                if name is not None and masks is not None:
+                    kw[name] = masks
+                return self.policy.evaluate_actions(obs, actions.squeeze(-1), **kw)
+
+            for mask_key in ("action_mask", "masks", "legal_mask", None):
+                try:
+                    out = _try_eval_with(mask_key)
+                    # normalize returns
+                    if isinstance(out, tuple) and len(out) == 3:
+                        new_log, entropy, values = out
+                        values = values.squeeze(-1) if values.ndim == 2 and values.shape[-1] == 1 else values
+                        return new_log, entropy, values
+                    elif isinstance(out, dict):
+                        new_log = out.get("log_prob")
+                        dist = out.get("dist")
+                        entropy = out.get("entropy", dist.entropy().mean() if dist is not None else None)
+                        values = out.get("value")
+                        if new_log is None or values is None:
+                            raise RuntimeError("evaluate_actions must return log_prob and value (or dist).")
+                        values = values.squeeze(-1) if values.ndim == 2 and values.shape[-1] == 1 else values
+                        if entropy is None and dist is not None:
+                            entropy = dist.entropy().mean()
+                        return new_log, entropy, values
+                except TypeError:
+                    pass  # try next mask key
+
+            # If evaluate_actions exists but didn’t match any signature, fall through to forward.
+
+        # 2) Generic path via forward()
+        # Many policies name the mask kwarg differently; try a few.
+        base = {"obs": obs, "h0": h0, "c0": c0}
+
+        def _call_forward(mask_key: Optional[str]):
+            kw = dict(base)
+            if mask_key is not None and masks is not None:
+                kw[mask_key] = masks
+            return self.policy.forward(**kw)
+
+        last_err = None
+        for mask_key in ("masks", "legal_mask", "action_mask", None):
+            try:
+                out = _call_forward(mask_key)
+                if not isinstance(out, dict) or "value" not in out:
+                    raise RuntimeError("policy.forward must return a dict with at least 'value' (and ideally 'dist').")
+                dist = out.get("dist", None)
+                values = out["value"]
+                values = values.squeeze(-1) if values.ndim == 2 and values.shape[-1] == 1 else values
+                if dist is None:
+                    # If the policy doesn’t return a dist, we can’t compute log_probs/entropy;
+                    # in that rare case, raise with a helpful message.
+                    raise RuntimeError("policy.forward did not return 'dist'; cannot compute log_prob/entropy for PPO.")
+                log_probs = dist.log_prob(actions.squeeze(-1))
+                entropy = dist.entropy().mean()
+                return log_probs, entropy, values
+            except TypeError as e:
+                last_err = e
+                continue
+
+        # If we got here, none of the signatures matched.
+        raise TypeError(f"PPORecurrentPolicy.forward/evaluate_actions mask kwarg mismatch. "
+                        f"Tried keys: masks, legal_mask, action_mask. Last error: {last_err}")
+
 
     def update(self, storage) -> Dict[str, float]:
         """

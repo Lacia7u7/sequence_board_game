@@ -39,7 +39,7 @@
     "seed": 42,
     "num_envs": 1,
     "rollout_length": 32,
-    "total_updates": 10000,
+    "total_updates": 100,
     "gamma": 0.99,
     "gae_lambda": 0.95,
     "lr": 0.001,
@@ -77,5 +77,16 @@
     "trueskill": true,
     "eval_interval_updates": 2,
     "opponent_snapshots_keep": 2
+  },
+  "rewards": {
+    "illegal": -0.01,
+    "win": 1.0,
+    "loss": -1.0,
+    "seq_bonus": 0.3,
+    "step_penalty": 0.0,
+    "open4_self": 0.05,
+    "open4_opp": 0.05,
+    "open3_self": 0.01,
+    "open3_opp": 0.01
   }
 }
