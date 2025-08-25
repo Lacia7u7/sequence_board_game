@@ -5,75 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/assets/boards/standard_10x10.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/.gitkeep" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/10C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/10D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/10H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/10S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/2C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/2D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/2H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/2S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/3C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/3D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/3H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/3S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/4C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/4D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/4H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/4S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/5C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/5D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/5H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/5S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/6C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/6D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/6H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/6S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/7C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/7D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/7H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/7S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/8C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/8D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/8H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/8S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/9C.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/9D.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/9H.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/9S.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/AC.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/AD.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/AH.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/AS.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/JC.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/JD.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/JH.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/JS.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/KC.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/KD.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/KH.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/KS.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/QC.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/QD.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/QH.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/assets/cards/QS.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/roomplay/roomplay.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/selfplay_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/selfplay_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/policy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/jsonio.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/jsonio.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/logging.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/replay_io.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/replay_io.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/seeding.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/seeding.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/tb_writer.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/tb_writer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/timers.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/timers.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,6 +22,7 @@
         <option value="JavaScript File" />
         <option value="Python Script" />
         <option value="Jupyter Notebook" />
+        <option value="package.json" />
       </list>
     </option>
   </component>

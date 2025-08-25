@@ -1,44 +1,10 @@
-# training/algorithms/ppo_lstm/storage.py
 from __future__ import annotations
 from typing import Optional, Tuple, Dict, Iterator
 import torch
 
 
 class RolloutStorage:
-    """Stores rollouts for PPO with LSTM.
-
-    Besides the usual observations, actions, rewards etc. we also keep the
-    legal-action mask for each environment step so that the learner can
-    reconstruct the masked policy distribution during training.
     """
-<<<<<<< Updated upstream
-
-    def __init__(
-        self,
-        rollout_length: int,
-        num_envs: int,
-        obs_shape,
-        action_dim: int,
-        hidden_size: int,
-        num_layers: int,
-    ):
-        self.rollout_length = rollout_length
-        self.num_envs = num_envs
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.action_dim = action_dim
-
-        self.obs = torch.zeros((rollout_length + 1, num_envs) + tuple(obs_shape), dtype=torch.float32)
-        self.actions = torch.zeros((rollout_length, num_envs), dtype=torch.long)
-        self.log_probs = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
-        self.rewards = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
-        self.dones = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
-        self.values = torch.zeros((rollout_length, num_envs), dtype=torch.float32)
-        # mask of legal actions used at each step (t, env, action_dim)
-        self.action_masks = torch.zeros(
-            (rollout_length, num_envs, action_dim), dtype=torch.float32
-        )
-=======
     PPO + LSTM rollout buffer (single or multi env).
 
     Stores:
@@ -78,7 +44,6 @@ class RolloutStorage:
         self.hidden_size = int(hidden_size)
         self.num_layers = int(num_layers)
         self.action_dim = int(action_dim) if action_dim is not None else None
->>>>>>> Stashed changes
 
         C, H, W = int(obs_shape[0]), int(obs_shape[1]), int(obs_shape[2])
 
@@ -117,24 +82,9 @@ class RolloutStorage:
 
     # --- device control ---
     def to(self, device: torch.device):
-<<<<<<< Updated upstream
-        self.obs = self.obs.to(device)
-        self.actions = self.actions.to(device)
-        self.log_probs = self.log_probs.to(device)
-        self.rewards = self.rewards.to(device)
-        self.dones = self.dones.to(device)
-        self.values = self.values.to(device)
-        self.action_masks = self.action_masks.to(device)
-        self.h_pre = self.h_pre.to(device)
-        self.c_pre = self.c_pre.to(device)
-        self.h_last = self.h_last.to(device)
-        self.c_last = self.c_last.to(device)
-        self.returns = self.returns.to(device)
-=======
-        for name, buf in self.__dict__.items():
+        for name, buf in list(self.__dict__.items()):
             if isinstance(buf, torch.Tensor):
                 setattr(self, name, buf.to(device))
->>>>>>> Stashed changes
         return self
 
     # --- API ---
@@ -146,52 +96,20 @@ class RolloutStorage:
         self.obs[0].copy_(obs0)
 
     def reset(self):
-        """Reset internal buffers and step counter.
-
-        RolloutStorage accumulates data over a fixed-length buffer. When
-        starting a new rollout we want to clear any stale values from the
-        previous iteration and reset the write index.  This helper zeros all
-        stored tensors and sets ``step`` back to ``0`` so the next call to
-        :meth:`insert` starts writing from the beginning.
-        """
+        """Full zero reset of internal buffers and step counter."""
         self.step = 0
-        self.obs.zero_()
-        self.actions.zero_()
-        self.log_probs.zero_()
-        self.rewards.zero_()
-        self.dones.zero_()
-        self.values.zero_()
-        self.h_pre.zero_()
-        self.c_pre.zero_()
-        self.h_last.zero_()
-        self.c_last.zero_()
-        self.returns.zero_()
+        for name in ("obs", "actions", "log_probs", "rewards", "dones", "values",
+                     "h_pre", "c_pre", "h_last", "c_last", "returns", "advantages"):
+            getattr(self, name).zero_()
+        if self.legal_masks is not None:
+            self.legal_masks.zero_()
+
+    def clear(self):
+        """Only reset the write index; keeps buffers (useful between rollouts)."""
+        self.step = 0
 
     def insert(
         self,
-<<<<<<< Updated upstream
-        obs_next: torch.Tensor,
-        actions: torch.Tensor,
-        log_probs: torch.Tensor,
-        values: torch.Tensor,
-        rewards: torch.Tensor,
-        dones: torch.Tensor,
-        h_pre: torch.Tensor,
-        c_pre: torch.Tensor,
-        action_masks: torch.Tensor,
-    ):
-        # obs_next is observation after env.step
-        self.obs[self.step + 1].copy_(obs_next)
-        self.actions[self.step].copy_(actions)
-        self.log_probs[self.step].copy_(log_probs)
-        self.values[self.step].copy_(values)
-        self.rewards[self.step].copy_(rewards)
-        self.dones[self.step].copy_(dones)
-        self.h_pre[self.step].copy_(h_pre)
-        self.c_pre[self.step].copy_(c_pre)
-        self.action_masks[self.step].copy_(action_masks)
-        self.step = (self.step + 1) % self.rollout_length
-=======
         obs_next: torch.Tensor,        # (N, C, H, W)
         actions: torch.Tensor,         # (N,)
         log_probs: torch.Tensor,       # (N,)
@@ -215,7 +133,6 @@ class RolloutStorage:
         if self.legal_masks is not None and legal_mask is not None:
             self.legal_masks[t].copy_(legal_mask)
         self.step += 1
->>>>>>> Stashed changes
 
     def set_last_hidden(self, h_last: torch.Tensor, c_last: torch.Tensor):
         self.h_last.copy_(h_last)
@@ -223,14 +140,18 @@ class RolloutStorage:
 
     def compute_returns_and_advantages(self, last_value: torch.Tensor, gamma: float, lam: float):
         """
-        last_value: (N,)
+        last_value: (N,) or (N,1)
         """
         T, N = self.rollout_length, self.num_envs
         device = self.obs.device
 
         advantages = torch.zeros((T, N), dtype=torch.float32, device=device)
         returns = torch.zeros((T + 1, N), dtype=torch.float32, device=device)
-        returns[-1] = last_value  # bootstrap
+
+        lv = last_value
+        if lv.ndim == 2 and lv.shape[1] == 1:
+            lv = lv.squeeze(1)
+        returns[-1] = lv  # bootstrap
 
         for t in reversed(range(T)):
             not_done = 1.0 - self.dones[t]
@@ -249,9 +170,6 @@ class RolloutStorage:
         self.last_returns_np = self.returns.detach().flatten().cpu().numpy()
 
         return self.advantages, self.returns
-
-    def clear(self):
-        self.step = 0
 
     # ---------- Minibatches for PPO ----------
     def iter_minibatches(self, minibatch_size: int, device: torch.device) -> Iterator[Dict[str, torch.Tensor]]:
