@@ -2,70 +2,75 @@
 from __future__ import annotations
 import argparse
 import json
+import math
 import os
-from typing import Any, Dict, Tuple
+import time
+from typing import Dict, Any
 
 import numpy as np
 import torch
 
+from ..utils.jsonio import load_json, deep_update
+from ..utils.seeding import set_all_seeds
+from ..utils.logging import LoggingMux
 from ..envs.sequence_env import SequenceEnv
-from ..algorithms.ppo_lstm.policy import PPORecurrentPolicy
 from ..algorithms.ppo_lstm.learner import PPOLearner, PPOConfig
-from ..algorithms.ppo_lstm import storage as ppo_storage
+from ..algorithms.ppo_lstm.policy import PPORecurrentPolicy
+from ..algorithms.ppo_lstm.storage import RolloutStorage
 
 
-def load_config(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    var_y = float(np.var(y_true)) if len(y_true) else 0.0
+    if var_y < 1e-8:
+        return float("nan")
+    return 1.0 - float(np.var(y_true - y_pred)) / (var_y + 1e-8)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True, help="Path to JSON config.")
-    parser.add_argument("--override", type=str, default=None, help='JSON string of dot-path overrides e.g. \'{"training.lr":1e-4}\'')
+    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument("--override", type=str, default=None)
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_json(args.config)
     if args.override:
-        overrides = json.loads(args.override)
-        for k, v in overrides.items():
-            parts = k.split(".")
-            node = cfg
-            for p in parts[:-1]:
-                node = node.setdefault(p, {})
-            node[parts[-1]] = v
+        cfg = deep_update(cfg, json.loads(args.override))
 
-    env = SequenceEnv(cfg)
-    obs, info = env.reset()
-    obs_channels = int(obs.shape[0])
-    action_dim = int(env.action_dim)
+    seed = int(cfg.get("training", {}).get("seed", 123))
+    set_all_seeds(seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model_cfg = cfg.get("model", {})
-    policy = PPORecurrentPolicy(
-        obs_channels=obs_channels,
-        action_dim=action_dim,
-        conv_channels=tuple(model_cfg.get("conv_channels", [64, 64, 128])),
-        lstm_hidden=int(model_cfg.get("lstm_hidden", 512)),
-        lstm_layers=int(model_cfg.get("lstm_layers", 1)),
-    ).to(device)
+    # ---- Build single env and get first obs ----
+    env = SequenceEnv(cfg)
+    obs_np, info = env.reset(seed=seed)
+    obs_shape = tuple(obs_np.shape)  # (C,H,W)
+    action_dim = env.action_dim
 
-    train_cfg = cfg.get("training", {})
-    ppo_cfg = PPOConfig(
-        lr=float(train_cfg.get("lr", 2.5e-4)),
-        clip_eps=float(train_cfg.get("clip_eps", 0.2)),
-        value_coef=float(train_cfg.get("value_coef", 0.5)),
-        entropy_coef=float(train_cfg.get("entropy_coef", 0.015)),
-        max_grad_norm=float(train_cfg.get("max_grad_norm", 1.0)),
-        epochs=int(train_cfg.get("epochs", 2)),
-        minibatch_size=int(train_cfg.get("minibatch_size", 4096)),
-        amp=bool(train_cfg.get("amp", True)),
+    # ---- Policy ----
+    policy = PPORecurrentPolicy(
+        obs_shape=obs_shape,
+        action_dim=action_dim,
+        conv_channels=cfg["model"]["conv_channels"],
+        lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+        lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+        device=device,
     )
 
-    rollout_length = int(train_cfg.get("rollout_length", 64))
-    total_updates = int(train_cfg.get("total_updates", 10))
+    # ---- Storage (single env) ----
+    num_envs = 1  # single SequenceEnv instance
+    rollout_len = int(cfg["training"]["rollout_length"])
+    storage = RolloutStorage(
+        rollout_length=rollout_len,
+        num_envs=num_envs,
+        obs_shape=obs_shape,
+        hidden_size=int(cfg["model"]["lstm_hidden"]),
+        num_layers=int(cfg["model"].get("lstm_layers", 1)),
+        action_dim=action_dim,
+        device=device,
+    )
 
+<<<<<<< Updated upstream
     storage = ppo_storage.RolloutStorage(
         rollout_length=rollout_length,
         num_envs=1,
@@ -78,9 +83,27 @@ def main():
     # Initialize
     obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)  # (1,C,H,W)
     hidden = policy.init_hidden(batch_size=1)
+=======
+    obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)  # (N=1,C,H,W)
+    storage.set_initial_obs(obs_t)
+>>>>>>> Stashed changes
 
-    learner = PPOLearner(policy, ppo_cfg)
+    # ---- Learner ----
+    learner_cfg = PPOConfig(
+        gamma=float(cfg["training"]["gamma"]),
+        gae_lambda=float(cfg["training"]["gae_lambda"]),
+        clip_eps=float(cfg["training"]["clip_eps"]),
+        entropy_coef=float(cfg["training"]["entropy_coef"]),
+        value_coef=float(cfg["training"]["value_coef"]),
+        max_grad_norm=float(cfg["training"]["max_grad_norm"]),
+        lr=float(cfg["training"]["lr"]),
+        epochs=int(cfg["training"].get("epochs", 3)),
+        minibatch_size=int(cfg["training"].get("minibatch_size", 2048)),
+        amp=bool(cfg["training"].get("amp", True)),
+    )
+    learner = PPOLearner(policy, learner_cfg, device=device)
 
+<<<<<<< Updated upstream
     for update in range(total_updates):
         # Start a new rollout by clearing old data and setting the initial observation
         storage.reset()
@@ -88,17 +111,36 @@ def main():
         for t in range(rollout_length):
             mask = torch.tensor(info.get("legal_mask"), dtype=torch.float32, device=device).unsqueeze(0)
             h_pre, c_pre = hidden
+=======
+    # ---- Logging ----
+    log = LoggingMux(cfg)
+    log.hparams(
+        {
+            "algo": "ppo_lstm",
+            "seed": seed,
+            "num_envs": num_envs,
+            "rollout_length": rollout_len,
+            "gamma": learner_cfg.gamma,
+            "gae_lambda": learner_cfg.gae_lambda,
+            "clip_eps": learner_cfg.clip_eps,
+            "entropy_coef": learner_cfg.entropy_coef,
+            "value_coef": learner_cfg.value_coef,
+            "lr": learner_cfg.lr,
+            "device": str(device),
+        },
+        {"hparams/created": 1.0},
+    )
+>>>>>>> Stashed changes
 
-            with torch.no_grad(), torch.cuda.amp.autocast(enabled=learner.scaler.is_enabled()):
-                action, log_prob, value, new_hidden = policy.act(obs_t, action_mask=mask, hidden_state=hidden)
+    total_updates = int(cfg["training"]["total_updates"])
 
-            action_int = int(action.item())
-            obs_next, reward, terminated, truncated, info = env.step(action_int)
+    # LSTM hidden state for the single env
+    h, c = policy.get_initial_state(batch_size=num_envs)
 
-            obs_next_t = torch.tensor(obs_next, dtype=torch.float32, device=device).unsqueeze(0)
-            reward_t = torch.tensor([reward], dtype=torch.float32, device=device)
-            done_t = torch.tensor([1.0 if (terminated or truncated) else 0.0], dtype=torch.float32, device=device)
+    global_step = 0
+    t0 = time.time()
 
+<<<<<<< Updated upstream
             storage.insert(
                 obs_next=obs_next_t,
                 actions=action.detach().cpu(),
@@ -109,29 +151,122 @@ def main():
                 h_pre=h_pre.detach().cpu(),
                 c_pre=c_pre.detach().cpu(),
                 action_masks=mask.detach().cpu(),
+=======
+    for update_idx in range(1, total_updates + 1):
+        # -------- collect rollout --------
+        storage.clear()
+        for t in range(rollout_len):
+            legal_mask_np = info.get("legal_mask", None)
+            legal_mask_t = (
+                torch.from_numpy(legal_mask_np).unsqueeze(0).to(device, dtype=torch.float32)
+                if legal_mask_np is not None
+                else None
+>>>>>>> Stashed changes
             )
 
-            obs_t = obs_next_t
-            hidden = new_hidden
+            with torch.no_grad():
+                out = policy.act(
+                    obs=obs_t,              # (1,C,H,W)
+                    legal_mask=legal_mask_t,  # (1,A) or None
+                    h0=h, c0=c,
+                )
+            action = int(out["action"].item())
+            logp = out["log_prob"].detach().cpu()
+            value = out["value"].detach().cpu()
 
-            if terminated or truncated:
-                obs, info = env.reset()
-                obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
-                hidden = policy.init_hidden(batch_size=1)
+            # keep PRE-action state for storage
+            h_pre = h.clone()
+            c_pre = c.clone()
+            # advance hidden state to the post-action one
+            h, c = out["h"], out["c"]
 
-        # Bootstrap with final hidden state & last obs
-        storage.set_last_hidden(hidden[0].detach().cpu(), hidden[1].detach().cpu())
+            # env step
+            next_obs_np, reward, terminated, truncated, info = env.step(action)
+            done_flag = bool(terminated or truncated)
+
+            # tensors for storage (N=1)
+            next_obs_t = torch.from_numpy(next_obs_np).unsqueeze(0).to(device, dtype=torch.float32)
+            act_t = torch.tensor([action], device=device, dtype=torch.long)
+            logp_t = logp.view(1)
+            value_t = value.view(1)
+            rew_t = torch.tensor([reward], device=device, dtype=torch.float32)
+            done_t = torch.tensor([1.0 if done_flag else 0.0], device=device, dtype=torch.float32)
+
+            storage.insert(
+                obs_next=next_obs_t,
+                actions=act_t,
+                log_probs=logp_t,
+                values=value_t,
+                rewards=rew_t,
+                dones=done_t,
+                h_pre=h_pre,  # (L,N,H)
+                c_pre=c_pre,  # (L,N,H)
+                legal_mask=legal_mask_t,  # (1,A) or None
+            )
+
+            obs_t = next_obs_t
+            global_step += 1
+
+            if done_flag:
+                # episode end; reset env and hidden
+                obs_np, info = env.reset()
+                obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)
+                h, c = policy.get_initial_state(batch_size=num_envs)
+
+        # After rollout, get bootstrap value on last obs and set last hidden state
         with torch.no_grad():
-            last_logits, last_value, _ = policy(obs_t, hidden_state=hidden)
-            last_value = last_value.detach().cpu()
-        advantages, _returns = storage.compute_returns_and_advantages(last_value, float(train_cfg.get("gamma", 0.997)), float(train_cfg.get("gae_lambda", 0.95)))
+            out_val = policy.forward(obs=obs_t, h0=h, c0=c)
+            last_value = out_val["value"].detach()  # (1,)
+        storage.set_last_hidden(h_last=h, c_last=c)
 
-        logs = learner.update(storage, advantages, device)
-        print(f"update {update+1}/{total_updates} | " + " | ".join(f"{k}:{v:.4f}" for k, v in logs.items()))
+        # GAE + returns
+        storage.compute_returns_and_advantages(
+            last_value=last_value, gamma=learner_cfg.gamma, lam=learner_cfg.gae_lambda
+        )
 
-    # Save final checkpoint
-    os.makedirs(cfg.get("logging", {}).get("logdir", "runs"), exist_ok=True)
-    torch.save(policy.state_dict(), os.path.join(cfg.get("logging", {}).get("logdir", "runs"), "policy_final.pt"))
+        # -------- PPO update --------
+        stats = learner.update(storage)
+
+        fps = global_step / max(1e-6, (time.time() - t0))
+        ev = float("nan")
+        if storage.last_values_np is not None and storage.last_returns_np is not None:
+            v_pred = np.asarray(storage.last_values_np, dtype=np.float32)
+            v_true = np.asarray(storage.last_returns_np, dtype=np.float32)
+            if v_true.size:
+                ev = explained_variance(v_pred, v_true)
+
+        print(
+            f"update {update_idx}/{total_updates} | "
+            f"loss/total:{stats.get('loss/total', 0.0):.4f} | "
+            f"loss/policy:{stats.get('loss/policy', 0.0):.4f} | "
+            f"loss/value:{stats.get('loss/value', 0.0):.4f} | "
+            f"loss/entropy:{stats.get('loss/entropy', 0.0):.4f} | "
+            f"fps:{fps:.1f}"
+        )
+
+        # TB + CSV + JSONL
+        log.scalars(
+            "loss",
+            {
+                "total":   float(stats.get("loss/total", 0.0)),
+                "policy":  float(stats.get("loss/policy", 0.0)),
+                "value":   float(stats.get("loss/value", 0.0)),
+                "entropy": float(stats.get("loss/entropy", 0.0)),
+            },
+            step=update_idx,
+        )
+        log.scalar("perf/fps", float(fps), step=update_idx)
+        if not math.isnan(ev):
+            log.scalar("value/explained_variance", float(ev), step=update_idx)
+        if "optim/lr" in stats:
+            log.scalar("optim/lr", float(stats["optim/lr"]), step=update_idx)
+        log.flush()
+
+    # Save checkpoint into the active run dir
+    run_dir = log.run_dir
+    os.makedirs(run_dir, exist_ok=True)
+    torch.save(policy.state_dict(), os.path.join(run_dir, "policy_final.pt"))
+    log.close()
 
 
 if __name__ == "__main__":

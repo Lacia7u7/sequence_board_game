@@ -1,5 +1,13 @@
+# training/utils/timers.py
+from __future__ import annotations
 import time
+
 class Timer:
-    def __init__(self): self.t0 = None
-    def start(self): self.t0 = time.time()
-    def elapsed(self): return (time.time() - self.t0) if self.t0 else 0.0
+    def __init__(self):
+        self._t0 = None
+
+    def start(self) -> None:
+        self._t0 = time.time()
+
+    def elapsed(self) -> float:
+        return 0.0 if self._t0 is None else (time.time() - self._t0)

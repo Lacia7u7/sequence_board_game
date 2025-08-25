@@ -1,36 +1,63 @@
 # training/algorithms/ppo_lstm/policy.py
 from __future__ import annotations
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class MaskedCategorical(torch.distributions.Categorical):
     @staticmethod
     def masked_logits(logits: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
+        """
+        Apply a binary mask (1=legal,0=illegal) to logits by setting illegal positions to a large negative.
+        logits: (B, A), mask: (B, A)
+        """
         if mask is None:
             return logits
-        # mask shape: (B, A)
         very_neg = torch.finfo(logits.dtype).min / 2
         return torch.where(mask > 0.5, logits, very_neg)
 
     @classmethod
     def from_logits_and_mask(cls, logits: torch.Tensor, mask: Optional[torch.Tensor]):
-        masked = cls.masked_logits(logits, mask)
-        return cls(logits=masked)
+        return cls(logits=cls.masked_logits(logits, mask))
 
 
 class PPORecurrentPolicy(nn.Module):
     """
     Conv trunk -> LSTM -> policy & value heads.
-    Exposes act() and evaluate_actions() that accept optional action masks and hidden states.
+
+    Public API:
+      - __init__(obs_shape=..., action_dim=..., ...)
+      - get_initial_state(batch_size) -> (h0, c0)  with shape (L, B, H)
+      - forward(obs, masks=..., h0=..., c0=...) -> {'logits','dist','value','h','c'}
+      - act(obs=..., legal_mask=..., h0=..., c0=...) -> {'action','log_prob','value','h','c'}
+      - evaluate_actions(...) handled by learner using .forward outputs
     """
-    def __init__(self, obs_channels: int, action_dim: int, conv_channels=(64, 64, 128), lstm_hidden=512, lstm_layers=1):
+
+    def __init__(
+        self,
+        obs_channels: Optional[int] = None,
+        action_dim: int = 0,
+        conv_channels=(64, 64, 128),
+        lstm_hidden: int = 512,
+        lstm_layers: int = 1,
+        *,
+        obs_shape: Optional[tuple] = None,
+        device: Optional[torch.device] = None,   # optional; learner will .to(device)
+    ):
         super().__init__()
-        c_in = obs_channels
+        if obs_channels is None:
+            if obs_shape is None or len(obs_shape) < 1:
+                raise ValueError("Please provide obs_channels or obs_shape=(C,H,W).")
+            obs_channels = int(obs_shape[0])
+
+        self.action_dim = int(action_dim)
+        self.lstm_hidden = int(lstm_hidden)
+        self.lstm_layers = int(lstm_layers)
+
+        # --- Conv trunk ---
         layers = []
-        prev = c_in
+        prev = obs_channels
         for ch in conv_channels:
             layers += [
                 nn.Conv2d(prev, ch, kernel_size=3, padding=1, bias=False),
@@ -40,57 +67,91 @@ class PPORecurrentPolicy(nn.Module):
             prev = ch
         self.conv = nn.Sequential(*layers)
         conv_out_ch = prev
+
         self.flatten = nn.Flatten(start_dim=1)
-        self.spatial_dim = 10 * 10 * conv_out_ch
 
-        self.lstm = nn.LSTM(input_size=self.spatial_dim, hidden_size=lstm_hidden, num_layers=lstm_layers, batch_first=True)
-        self.pi = nn.Linear(lstm_hidden, action_dim)
-        self.v = nn.Linear(lstm_hidden, 1)
+        if obs_shape is not None and len(obs_shape) >= 3:
+            H, W = int(obs_shape[1]), int(obs_shape[2])
+        else:
+            H, W = 10, 10
+        self.spatial_dim = H * W * conv_out_ch
 
-        self.lstm_hidden = lstm_hidden
-        self.action_dim = action_dim
+        # --- LSTM ---
+        self.lstm = nn.LSTM(
+            input_size=self.spatial_dim,
+            hidden_size=self.lstm_hidden,
+            num_layers=self.lstm_layers,
+            batch_first=True,
+        )
 
+        # --- Heads ---
+        self.pi = nn.Linear(self.lstm_hidden, self.action_dim)
+        self.v  = nn.Linear(self.lstm_hidden, 1)
+
+        # Optional early device move
+        if device is not None:
+            try:
+                self.to(device)
+            except Exception:
+                pass
+
+    # -------- utilities --------
     def init_hidden(self, batch_size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-        h0 = torch.zeros(self.lstm.num_layers, batch_size, self.lstm_hidden, device=next(self.parameters()).device)
-        c0 = torch.zeros(self.lstm.num_layers, batch_size, self.lstm_hidden, device=next(self.parameters()).device)
+        dev = next(self.parameters()).device
+        h0 = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden, device=dev)
+        c0 = torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden, device=dev)
         return h0, c0
 
+    # Back-compat alias
+    def get_initial_state(self, batch_size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.init_hidden(batch_size)
+
     def _encode(self, obs: torch.Tensor) -> torch.Tensor:
-        # obs: (B, C, H, W)
-        x = self.conv(obs)
-        x = self.flatten(x)  # (B, spatial_dim)
+        x = self.conv(obs)          # (B, C', H, W)
+        x = self.flatten(x)         # (B, spatial_dim)
         return x
 
-    def forward(self, obs: torch.Tensor, hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
-        B = obs.size(0)
-        enc = self._encode(obs).unsqueeze(1)  # (B, 1, spatial_dim)
-        if hidden_state is None:
-            h0, c0 = self.init_hidden(B)
-        else:
-            h0, c0 = hidden_state
-        out, (hn, cn) = self.lstm(enc, (h0, c0))  # out: (B, 1, H)
-        last = out[:, -1, :]  # (B, H)
-        logits = self.pi(last)
-        value = self.v(last).squeeze(-1)
-        return logits, value, (hn, cn)
-
-    @torch.no_grad()
-    def act(self, obs: torch.Tensor, action_mask: Optional[torch.Tensor] = None, hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
-        logits, value, (hn, cn) = self.forward(obs, hidden_state=hidden_state)
-        dist = MaskedCategorical.from_logits_and_mask(logits, action_mask)
-        action = dist.sample()
-        log_prob = dist.log_prob(action)
-        return action, log_prob, value, (hn, cn)
-
-    def evaluate_actions(
+    def _forward_core(
         self,
         obs: torch.Tensor,
-        actions: torch.Tensor,
-        action_mask: Optional[torch.Tensor] = None,
-        hidden_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-    ):
-        logits, value, _ = self.forward(obs, hidden_state=hidden_state)
-        dist = MaskedCategorical.from_logits_and_mask(logits, action_mask)
-        log_probs = dist.log_prob(actions)
-        entropy = dist.entropy().mean()
-        return log_probs, entropy, value
+        h0: Optional[torch.Tensor] = None,
+        c0: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        B = obs.size(0)
+        if h0 is None or c0 is None:
+            h0, c0 = self.init_hidden(B)
+
+        enc = self._encode(obs).unsqueeze(1)      # (B, 1, spatial_dim)
+        out, (hn, cn) = self.lstm(enc, (h0, c0))  # out: (B, 1, H)
+        last = out[:, -1, :]                      # (B, H)
+        logits = self.pi(last)                    # (B, A)
+        value  = self.v(last)                     # (B, 1)  (KEEP 2D for learner)
+        return logits, value, (hn, cn)
+
+    # -------- public API --------
+    def forward(
+        self,
+        obs: torch.Tensor,
+        masks: Optional[torch.Tensor] = None,  # (B, A) legal mask
+        h0: Optional[torch.Tensor] = None,
+        c0: Optional[torch.Tensor] = None,
+    ) -> Dict[str, Any]:
+        logits, value, (hn, cn) = self._forward_core(obs, h0=h0, c0=c0)
+        dist = MaskedCategorical.from_logits_and_mask(logits, masks)
+        return {"logits": logits, "dist": dist, "value": value, "h": hn, "c": cn}
+
+    @torch.no_grad()
+    def act(
+        self,
+        obs: torch.Tensor,
+        legal_mask: Optional[torch.Tensor] = None,    # alias
+        action_mask: Optional[torch.Tensor] = None,   # alias
+        h0: Optional[torch.Tensor] = None,
+        c0: Optional[torch.Tensor] = None,
+    ) -> Dict[str, Any]:
+        mask = action_mask if action_mask is not None else legal_mask
+        logits, value, (hn, cn) = self._forward_core(obs, h0=h0, c0=c0)
+        dist = MaskedCategorical.from_logits_and_mask(logits, mask)
+        action = dist.sample()
+        log_prob = dist.log_prob(action)
+        return {"action": action, "log_prob": log_prob, "value": value, "h": hn, "c": cn}
