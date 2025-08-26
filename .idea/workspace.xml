@@ -5,11 +5,41 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/training/agents/base_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/baseline/blocking_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/baseline/greedy_sequence_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/baseline/random_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/human_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/training/ppo_lstm_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/base_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/masked_categorical.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/ui/render.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/rating.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/rating.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/selfplay_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/selfplay_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/blocking_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/blocking_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/greedy_sequence_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/greedy_sequence_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/random_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/learner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/ppo_lstm_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/ppo_lstm/storage.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756147059.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756148413.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756148431.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756153432.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/engine/engine_core.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/engine_core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/engine/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/envs/sequence_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/envs/sequence_env.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/roomplay/roomplay.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/roomplay/roomplay.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/benchmark.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/benchmark.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/eval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/selfplay.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/selfplay.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/trainingfoldergenerator.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainingfoldergenerator.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,32 +82,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python Debug Server.Unnamed.executor": "Debug",
-    "Python tests.Python tests in tests.executor": "Run",
-    "Python.general.executor": "Run",
-    "Python.train.executor": "Debug",
-    "Python.trainingfoldergenerator.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/training",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "npm.build.executor": "Run",
-    "npm.gen:errors.executor": "Run",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "E:\\sequence_game_board\\sequence_board_game\\app\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python Debug Server.Unnamed.executor&quot;: &quot;Debug&quot;,
+    &quot;Python tests.Python tests in tests.executor&quot;: &quot;Run&quot;,
+    &quot;Python.eval.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.general.executor&quot;: &quot;Run&quot;,
+    &quot;Python.selfplay.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.train.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.trainingfoldergenerator.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/sequence_game_board/sequence_board_game/training&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.build.executor&quot;: &quot;Run&quot;,
+    &quot;npm.gen:errors.executor&quot;: &quot;Run&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;E:\\sequence_game_board\\sequence_board_game\\app\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="E:\sequence_game_board\sequence_board_game\training" />
@@ -85,13 +117,14 @@
       <recent name="E:\sequence_game_board\sequence_board_game\functions-python" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\training\algorithms" />
+      <recent name="E:\sequence_game_board\sequence_board_game\training\algorithms\ppo_lstm" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\public\assets" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\public" />
       <recent name="E:\sequence_game_board\sequence_board_game\app" />
-      <recent name="E:\sequence_game_board\sequence_board_game\app\src" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests in tests">
+  <component name="RunManager" selected="Python.eval">
     <configuration name="Unnamed" type="PyRemoteDebugConfigurationType" factoryName="Python Remote Debug" nameIsGenerated="true">
       <module name="sequence_board_game" />
       <option name="PORT" value="5678" />
@@ -103,6 +136,52 @@
       </PathMappingSettings>
       <option name="REDIRECT_OUTPUT" value="true" />
       <option name="SUSPEND_AFTER_CONNECT" value="true" />
+      <method v="2" />
+    </configuration>
+    <configuration name="eval" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="sequence_board_game" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/training/scripts" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/training/scripts/eval.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="selfplay" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="sequence_board_game" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/training/scripts" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/training/scripts/selfplay.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
     <configuration name="train" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
@@ -151,26 +230,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/app/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="build" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
-      <method v="2" />
-    </configuration>
-    <configuration name="gen:errors" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
-      <package-json value="$PROJECT_DIR$/app/package.json" />
-      <command value="run" />
-      <scripts>
-        <script value="gen:errors" />
-      </scripts>
-      <node-interpreter value="project" />
-      <envs />
-      <method v="2" />
-    </configuration>
     <configuration name="Python tests in tests" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="sequence_board_game" />
       <option name="ENV_FILES" value="" />
@@ -189,11 +248,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.eval" />
+        <item itemvalue="Python.selfplay" />
         <item itemvalue="Python tests.Python tests in tests" />
         <item itemvalue="Python.train" />
         <item itemvalue="Python.trainingfoldergenerator" />
-        <item itemvalue="npm.gen:errors" />
-        <item itemvalue="npm.build" />
       </list>
     </recent_temporary>
   </component>
@@ -222,6 +281,8 @@
       <workItem from="1756058041320" duration="14832000" />
       <workItem from="1756078481323" duration="3505000" />
       <workItem from="1756141831842" duration="2938000" />
+      <workItem from="1756167796047" duration="12006000" />
+      <workItem from="1756185591810" duration="2512000" />
     </task>
     <servers />
   </component>
@@ -262,16 +323,46 @@
           <line>110</line>
           <option name="timeStamp" value="86" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+          <url>file://$PROJECT_DIR$/training/starter.ipynb</url>
+          <line>145</line>
+          <option name="timeStamp" value="133" />
+        </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/envs/sequence_env.py</url>
-          <line>444</line>
+          <line>452</line>
           <option name="timeStamp" value="99" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
+          <line>78</line>
+          <option name="timeStamp" value="112" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/selfplay.py</url>
+          <line>9</line>
+          <option name="timeStamp" value="113" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/eval.py</url>
+          <line>131</line>
+          <option name="timeStamp" value="115" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/eval.py</url>
+          <line>126</line>
+          <option name="timeStamp" value="123" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/eval.py</url>
+          <line>122</line>
+          <option name="timeStamp" value="142" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
     <watches-manager>
       <configuration name="starter">
-        <watch expression="reward" language="Python" />
+        <watch expression="steps" language="Python" />
       </configuration>
     </watches-manager>
   </component>
@@ -279,6 +370,8 @@
     <SUITE FILE_PATH="coverage/sequence_board_game$general.coverage" NAME="general Coverage Results" MODIFIED="1755726740099" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/sequence_board_game$trainingfoldergenerator.coverage" NAME="trainingfoldergenerator Coverage Results" MODIFIED="1756000184444" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/sequence_board_game$.coverage" NAME=" Coverage Results" MODIFIED="1756148199765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/training/tests" />
+    <SUITE FILE_PATH="coverage/sequence_board_game$eval.coverage" NAME="eval Coverage Results" MODIFIED="1756173316377" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/training/scripts" />
     <SUITE FILE_PATH="coverage/sequence_board_game$train.coverage" NAME="train Coverage Results" MODIFIED="1756066938645" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/training/scripts" />
+    <SUITE FILE_PATH="coverage/sequence_board_game$selfplay.coverage" NAME="selfplay Coverage Results" MODIFIED="1756167954791" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/training/scripts" />
   </component>
 </project>

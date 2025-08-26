@@ -1,6 +1,6 @@
 import time, torch
 from ..envs.sequence_env import SequenceEnv
-from ..algorithms.ppo_lstm.policy import PPOPolicy
+from ..algorithms.ppo_lstm.ppo_lstm_policy import PPOPolicy
 
 def main():
     env = SequenceEnv()

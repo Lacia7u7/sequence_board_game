@@ -41,7 +41,7 @@ class GameEngine:
 
         self.state = GameState(hands=hands, board=board, sequences=seq_count)
         self.state.current_player = 0
-        self.state.round_count = 0
+        self.state.turns_count = 0
         self.state.winners = []
         self.state.config = config
 
@@ -242,7 +242,7 @@ class GameEngine:
                     for j in range(10):
                         if BOARD_LAYOUT[i][j] != "BONUS":
                             self.state.board[i][j] = None
-                self.state.round_count += 1
+                self.state.turns_count += 1
                 self.deck.cards = self.deck.discard_pile.copy()
                 self.deck.discard_pile.clear()
                 self.deck.burned_cards.clear()
@@ -304,6 +304,7 @@ class GameEngine:
             return
         total_players = self.game_config.teams * self.game_config.players_per_team
         self.state.current_player = (self.state.current_player + 1) % total_players
+        self.state.turns_count += 1
 
     def _cell_counts_for_team(self, r: int, c: int, team: int) -> bool:
         if self.state is None:

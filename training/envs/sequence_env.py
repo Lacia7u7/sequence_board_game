@@ -91,6 +91,14 @@ class SequenceEnv:
         }
         return obs, info
 
+    def get_obs(self):
+        return encode_board_state(
+            self._state(),
+            self.current_player,
+            self.config,
+            legal=self._legal_for(self.current_player),
+            public=self._public_summary(),
+        )
     def step(self, action: int):
         st_before = self._state()
         acting_player = self.current_player

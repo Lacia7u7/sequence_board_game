@@ -116,13 +116,12 @@ class GameState:
     def current_player(self, value: int) -> None:
         self.turn_index = int(value)
 
-    # round_count <-> roundCount
     @property
-    def round_count(self) -> int:
+    def turns_count(self) -> int:
         return self.roundCount
 
-    @round_count.setter
-    def round_count(self, value: int) -> None:
+    @turns_count.setter
+    def turns_count(self, value: int) -> None:
         self.roundCount = int(value)
 
     # sequence_cells <-> sequenceCells (as a SET of (r,c) tuples)

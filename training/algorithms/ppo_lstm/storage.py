@@ -141,34 +141,39 @@ class RolloutStorage:
     def compute_returns_and_advantages(self, last_value: torch.Tensor, gamma: float, lam: float):
         """
         last_value: (N,) or (N,1)
+        Correct GAE(λ):
+          adv_t = δ_t + γλ (1-done_t) adv_{t+1}
+          δ_t   = r_t + γ (1-done_t) V(s_{t+1}) - V(s_t)
+          return_t = adv_t + V(s_t)
         """
         T, N = self.rollout_length, self.num_envs
         device = self.obs.device
 
         advantages = torch.zeros((T, N), dtype=torch.float32, device=device)
-        returns = torch.zeros((T + 1, N), dtype=torch.float32, device=device)
+        returns = torch.zeros((T, N), dtype=torch.float32, device=device)
 
         lv = last_value
         if lv.ndim == 2 and lv.shape[1] == 1:
-            lv = lv.squeeze(1)
-        returns[-1] = lv  # bootstrap
+            lv = lv.squeeze(1)  # (N,)
+
+        next_value = lv.clone()  # V(s_{T})
+        next_adv = torch.zeros((N,), device=device)  # adv_{T} = 0
 
         for t in reversed(range(T)):
-            not_done = 1.0 - self.dones[t]
-            delta = self.rewards[t] + gamma * returns[t + 1] * not_done - self.values[t]
-            if t < T - 1:
-                advantages[t] = delta + gamma * lam * advantages[t + 1] * not_done
-            else:
-                advantages[t] = delta
-            returns[t] = advantages[t] + self.values[t]
+            not_done = 1.0 - self.dones[t]  # (N,)
+            delta = self.rewards[t] + gamma * next_value * not_done - self.values[t]
+            adv_t = delta + gamma * lam * next_adv * not_done
+            advantages[t] = adv_t
+            returns[t] = adv_t + self.values[t]
+            next_value = self.values[t]  # V(s_t) becomes next step's V(s_{t+1})
+            next_adv = adv_t
 
         self.advantages = advantages
-        self.returns = returns[:-1]
+        self.returns = returns
 
         # numpy copies for explained variance printout
-        self.last_values_np  = self.values.detach().flatten().cpu().numpy()
+        self.last_values_np = self.values.detach().flatten().cpu().numpy()
         self.last_returns_np = self.returns.detach().flatten().cpu().numpy()
-
         return self.advantages, self.returns
 
     # ---------- Minibatches for PPO ----------

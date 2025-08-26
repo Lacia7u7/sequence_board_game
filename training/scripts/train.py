@@ -15,7 +15,7 @@ from ..utils.seeding import set_all_seeds
 from ..utils.logging import LoggingMux
 from ..envs.sequence_env import SequenceEnv
 from ..algorithms.ppo_lstm.learner import PPOLearner, PPOConfig
-from ..algorithms.ppo_lstm.policy import PPORecurrentPolicy
+from ..algorithms.ppo_lstm.ppo_lstm_policy import PPORecurrentPolicy
 from ..algorithms.ppo_lstm.storage import RolloutStorage
 
 
@@ -55,6 +55,7 @@ def main():
         lstm_hidden=int(cfg["model"]["lstm_hidden"]),
         lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
         device=device,
+        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),  # NEW
     )
 
     # ---- Storage (single env) ----
@@ -84,7 +85,7 @@ def main():
         max_grad_norm=float(cfg["training"]["max_grad_norm"]),
         lr=float(cfg["training"]["lr"]),
         epochs=int(cfg["training"].get("epochs", 3)),
-        minibatch_size=int(cfg["training"].get("minibatch_size", 2048)),
+        minibatch_size=int(cfg["training"].get("minibatch_size", 512)),
         amp=bool(cfg["training"].get("amp", True)),
     )
     learner = PPOLearner(policy, learner_cfg, device=device)
@@ -130,10 +131,13 @@ def main():
                 legal_mask_t = None
 
             with torch.no_grad():
-                out = policy.act(
-                    obs=obs_t,                 # (1,C,H,W)
-                    legal_mask=legal_mask_t,   # (1,A) or None
-                    h0=h, c0=c,
+                out = policy.select_action(
+                    legal_mask=legal_mask_arr,
+                    ctx={
+                        "obs": obs_t,  # (1, C, H, W)
+                        "h0": h,
+                        "c0": c,
+                    }
                 )
             action = int(out["action"].item())
             logp = out["log_prob"].detach().cpu()

@@ -1,34 +1,132 @@
-import argparse, json, torch
+# training/scripts/eval.py
+from __future__ import annotations
+import argparse, json, importlib
+from typing import Dict, Any, List, Tuple, Optional
+
 from ..envs.sequence_env import SequenceEnv
-from ..algorithms.ppo_lstm.policy import PPOPolicy
+from ..agents.selfplay_manager import SelfPlayManager
+from ..agents.base_agent import BaseAgent
+
+def load_ratings_backends():
+    try:
+        # was: training.agents.ratings  (plural)
+        return importlib.import_module("training.agents.rating")
+    except Exception:
+        return None
+
+
+def load_agent(path: str, env, kwargs: Dict[str, Any]) -> BaseAgent:
+    mod_path = "training." + path.replace(".py", "").replace("/", ".")
+    mod = importlib.import_module(mod_path)
+    if hasattr(mod, "make_agent"):
+        return mod.make_agent(env=env, **kwargs)
+    for cls_name in ("Agent","BlockingAgent","GreedySequenceAgent","RandomAgent","PPOLstmAgent","HumanAgent"):
+        if hasattr(mod, cls_name):
+            cls = getattr(mod, cls_name)
+            try:
+                return cls(env=env, **kwargs)
+            except TypeError:
+                return cls(**kwargs)
+    raise RuntimeError(f"Could not create agent from {path}")
+
+def play_match(env: SequenceEnv, a: BaseAgent, b: BaseAgent, seed: Optional[int]) -> Tuple[bool, bool, List[int]]:
+    mgr = SelfPlayManager([a, b], env, max_steps=int(env._step_limit))
+    out = mgr.play_episode(seed=seed, render=False)
+    return out["terminated"], out["truncated"], out.get("winners", [])
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--config", required=True)
-    p.add_argument("--policy_path", required=True)
-    args = p.parse_args()
-    config = json.load(open(args.config))
-    env = SequenceEnv(config)
-    obs_shape = env.observation_space.shape
-    action_dim = env.action_space.n
-    conv_channels = config["model"].get("conv_channels", [64,64,128,128])
-    lstm_hidden = config["model"].get("lstm_hidden", 256)
-    lstm_layers = config["model"].get("lstm_layers", 1)
-    policy = PPOPolicy(obs_shape, action_dim, conv_channels, lstm_hidden, lstm_layers)
-    policy.load_state_dict(torch.load(args.policy_path, map_location="cpu"))
-    policy.eval()
-    wins = 0; games = 5
-    for _ in range(games):
-        obs, info = env.reset()
-        done = False
-        while not done:
-            obs_t = torch.from_numpy(obs).unsqueeze(0)
-            logits, value, _ = policy(obs_t)
-            action = int(torch.argmax(logits, dim=-1).item())
-            obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-        if reward > 0: wins += 1
-    print(f"Win-rate over {games} self-play matches: {wins/games:.2%}")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", required=True)
+    ap.add_argument("--episodes", type=int, default=200)
+    args = ap.parse_args()
+
+    cfg = json.load(open(args.config, "r"))
+    eval_cfg = dict(cfg.get("evaluation", {}))
+
+    # These flags are used by ratings backends below
+    use_elo = bool(eval_cfg.get("elo", True))
+    use_ts  = bool(eval_cfg.get("trueskill", True))
+
+    env = SequenceEnv(cfg)
+    obs,info = env.reset(seed=cfg.get("seed", None))
+
+    bench_paths: List[str] = list(eval_cfg.get("benchmark_agents", []))
+    eval_paths:  List[str] = list(eval_cfg.get("evaluated_agents", []))
+    agent_kwargs_all: Dict[str, Dict[str, Any]] = dict(eval_cfg.get("agent_kwargs", {}))
+
+    ratings_mod = load_ratings_backends()
+    EloCls = getattr(ratings_mod, "Elo", None) if ratings_mod and use_elo else None
+    TSCls  = getattr(ratings_mod, "TrueSkill", None) if ratings_mod and use_ts  else None
+    elo_sys = EloCls() if EloCls else None
+    ts_sys  = TSCls()  if TSCls  else None
+
+    benches = [(p, load_agent(p, env, dict(agent_kwargs_all.get(p, {})))) for p in bench_paths]
+    evals   = [(p, load_agent(p, env, dict(agent_kwargs_all.get(p, {})))) for p in eval_paths]
+
+    elo_r: Dict[str, Any] = {}
+    ts_r:  Dict[str, Any] = {}
+
+    def ensure(name: str):
+        if elo_sys is not None and name not in elo_r:
+            elo_r[name] = elo_sys.create() if hasattr(elo_sys, "create") else 1000.0
+        if ts_sys is not None and name not in ts_r:
+            ts_r[name] = ts_sys.create() if hasattr(ts_sys, "create") else None
+
+    summary: List[Dict[str, Any]] = []
+    for ename, eagent in evals:
+        ensure(ename)
+        for bname, bagent in benches:
+            ensure(bname)
+            w = l = d = 0
+            for ep in range(args.episodes):
+                if ep % 2 == 0:
+                    terminated, truncated, winners = play_match(env, eagent, bagent, seed=ep)
+                    e_won = (0 in winners)
+                else:
+                    terminated, truncated, winners = play_match(env, bagent, eagent, seed=ep)
+                    e_won = (1 in winners)
+
+                if winners:
+                    if e_won: w += 1
+                    else:     l += 1
+                else:
+                    d += 1
+
+                # ratings updates
+                if elo_sys is not None:
+                    a, b = elo_r[ename], elo_r[bname]
+                    score = 1.0 if e_won else (0.0 if winners else 0.5)
+                    if hasattr(elo_sys, "rate_1vs1"):
+                        a, b = elo_sys.rate_1vs1(a, b, score_a=score)
+                    else:
+                        Ea = 1.0/(1.0+10.0**((b-a)/400.0)); k=32.0
+                        a = a + k*(score-Ea); b = b + k*((1.0-score)-(1.0-Ea))
+                    elo_r[ename], elo_r[bname] = a, b
+
+                if ts_sys is not None and hasattr(ts_sys, "rate_1vs1"):
+                    a, b = ts_r[ename], ts_r[bname]
+                    if winners:
+                        a, b = ts_sys.rate_1vs1(a, b, draw=False, a_wins=e_won)
+                    else:
+                        a, b = ts_sys.rate_1vs1(a, b, draw=True)
+                    ts_r[ename], ts_r[bname] = a, b
+
+            n = max(1, w+l+d)
+            row = {"evaluated": ename, "benchmark": bname, "episodes": n,
+                   "win_rate": w/n, "wins": w, "losses": l, "draws": d}
+            if ename in elo_r: row["elo_eval"] = elo_r[ename]
+            if bname in elo_r: row["elo_bench"] = elo_r[bname]
+            if ename in ts_r:  row["ts_eval"]  = ts_r[ename]
+            if bname in ts_r:  row["ts_bench"] = ts_r[bname]
+            summary.append(row)
+
+    print("\n=== Evaluation Summary ===")
+    for r in summary:
+        line = (f"{r['evaluated']} vs {r['benchmark']} | n={r['episodes']} | "
+                f"WR={r['win_rate']*100:5.1f}% | W/L/D={r['wins']}/{r['losses']}/{r['draws']}")
+        if "elo_eval" in r: line += f" | ELO(eval)={r['elo_eval']}"
+        if "ts_eval" in r:  line += f" | TS(eval)={r['ts_eval']}"
+        print(line)
 
 if __name__ == "__main__":
     main()

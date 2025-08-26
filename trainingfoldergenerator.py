@@ -32,7 +32,7 @@ FILE_PATHS = [
     "training/envs/action_mapping.py",
     "training/envs/masks.py",
 
-    "training/algorithms/ppo_lstm/policy.py",
+    "training/algorithms/ppo_lstm/ppo_lstm_policy.py",
     "training/algorithms/ppo_lstm/storage.py",
     "training/algorithms/ppo_lstm/learner.py",
     "training/algorithms/ppo_lstm/losses.py",

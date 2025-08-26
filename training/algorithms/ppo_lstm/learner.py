@@ -8,17 +8,16 @@ import torch.nn.functional as F
 
 @dataclass
 class PPOConfig:
-    gamma: float = 0.997
+    gamma: float = 0.99
     gae_lambda: float = 0.95
     clip_eps: float = 0.2
-    entropy_coef: float = 0.015
+    entropy_coef: float = 0.01
     value_coef: float = 0.5
-    max_grad_norm: float = 1.0
-    lr: float = 2.5e-4
+    max_grad_norm: float = 0.5
+    lr: float = 3e-4
     epochs: int = 3
-    minibatch_size: int = 2048
-    amp: bool = True
-
+    minibatch_size: int = 256
+    amp: bool = False
 
 class PPOLearner:
     """
@@ -157,9 +156,11 @@ class PPOLearner:
                     policy_loss = -torch.min(surr1, surr2).mean()
 
                     # value loss (clipped)
-                    values_clipped = old_values + torch.clamp(values - old_values, -self.cfg.clip_eps, self.cfg.clip_eps)
-                    value_losses = (values - returns).pow(2)
-                    value_losses_clipped = (values_clipped - returns).pow(2)
+                    # value loss (clipped) + Huber
+                    values_clipped = old_values + torch.clamp(values - old_values, -self.cfg.clip_eps,
+                                                              self.cfg.clip_eps)
+                    value_losses = F.smooth_l1_loss(values, returns, reduction="none")  # [B]
+                    value_losses_clipped = F.smooth_l1_loss(values_clipped, returns, reduction="none")  # [B]
                     value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
 
                     loss = policy_loss + self.cfg.value_coef * value_loss - self.cfg.entropy_coef * entropy

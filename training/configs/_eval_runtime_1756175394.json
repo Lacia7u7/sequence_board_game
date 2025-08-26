@@ -38,23 +38,23 @@
     "algorithm": "ppo_lstm",
     "seed": 42,
     "num_envs": 1,
-    "rollout_length": 32,
-    "total_updates": 100,
+    "rollout_length": 64,
+    "total_updates": 2,
     "gamma": 0.99,
     "gae_lambda": 0.95,
-    "lr": 0.001,
+    "lr": 0.0003,
     "clip_eps": 0.2,
     "entropy_coef": 0.01,
     "value_coef": 0.5,
     "max_grad_norm": 0.5,
-    "amp": true,
+    "amp": false,
+    "minibatch_size": 256,
     "opponent_pool": {
       "current": 1.0,
       "snapshots": 1.0,
       "heuristics": 1.0
     },
-    "episode_cap": 200,
-    "minibatch_size": 512
+    "episode_cap": 200
   },
   "model": {
     "conv_channels": [
@@ -63,7 +63,8 @@
       64
     ],
     "lstm_hidden": 64,
-    "lstm_layers": 2
+    "lstm_layers": 2,
+    "value_tanh_bound": 5.0
   },
   "logging": {
     "tensorboard": true,
@@ -76,7 +77,21 @@
     "elo": true,
     "trueskill": true,
     "eval_interval_updates": 2,
-    "opponent_snapshots_keep": 2
+    "opponent_snapshots_keep": 2,
+    "benchmark_agents": [
+      "agents/baseline/blocking_agent.py"
+    ],
+    "evaluated_agents": [
+      "agents/training/ppo_lstm_agent.py"
+    ],
+    "teams": 1,
+    "agents_per_team": 1,
+    "agent_kwargs": {
+      "agents/training/ppo_lstm_agent.py": {
+        "policy_path": "E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run/policy_final.pt",
+        "deterministic": true
+      }
+    }
   },
   "rewards": {
     "illegal": -0.01,

@@ -73,14 +73,17 @@
     "log_private_hands_locally": true,
     "logdir": "runs/smoke/full"
   },
-
   "evaluation": {
     "elo": true,
     "trueskill": true,
     "eval_interval_updates": 2,
     "opponent_snapshots_keep": 2,
-    "benchmark_agents": ["agents/baseline/blocking_agent.py"],
-    "evaluated_agents": ["agents/training/ppo_lstm_agent.py"],
+    "benchmark_agents": [
+      "agents/baseline/blocking_agent.py"
+    ],
+    "evaluated_agents": [
+      "agents/training/ppo_lstm_agent.py"
+    ],
     "teams": 1,
     "agents_per_team": 1,
     "agent_kwargs": {

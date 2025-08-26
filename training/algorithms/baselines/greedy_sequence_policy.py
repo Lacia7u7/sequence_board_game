@@ -1,8 +1,16 @@
+from typing import Optional
+
+from overrides import overrides
+
+from training.algorithms.base_policy import BasePolicy, PolicyCtx
 from ...engine.engine_core import BOARD_LAYOUT
-class GreedySequencePolicy:
+
+class GreedySequencePolicy (BasePolicy):
     def __init__(self, env):
         self.env = env
-    def select_action(self, obs, legal_mask):
+
+    @overrides
+    def select_action(self, legal_mask: Optional[np.ndarray],  ctx: Optional[PolicyCtx] = None):
         legal = [i for i, m in enumerate(legal_mask.flatten()) if m > 0.5] if legal_mask is not None else range(self.env.action_space.n)
         for act in legal:
             if act < 100:

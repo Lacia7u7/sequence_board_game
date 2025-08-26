@@ -73,22 +73,26 @@
     "log_private_hands_locally": true,
     "logdir": "runs/smoke/full"
   },
-
   "evaluation": {
     "elo": true,
     "trueskill": true,
     "eval_interval_updates": 2,
     "opponent_snapshots_keep": 2,
-    "benchmark_agents": ["agents/baseline/blocking_agent.py"],
-    "evaluated_agents": ["agents/training/ppo_lstm_agent.py"],
-    "teams": 1,
+    "benchmark_agents": [
+      "agents/baseline/blocking_agent.py"
+    ],
+    "evaluated_agents": [
+      "agents/training/ppo_lstm_agent.py"
+    ],
+    "teams": 2,
     "agents_per_team": 1,
     "agent_kwargs": {
       "agents/training/ppo_lstm_agent.py": {
-        "policy_path": "E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run/policy_final.pt",
+        "policy_path": "runs/smoke/full/policy_final.pt",
         "deterministic": true
       }
-    }
+    },
+    "episodes": 200
   },
   "rewards": {
     "illegal": -0.01,
