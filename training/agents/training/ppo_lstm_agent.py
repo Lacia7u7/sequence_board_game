@@ -56,6 +56,8 @@ class PPOLstmAgent(ObsAgent):
                 "deterministic" : self.deterministic,
             },
         )
+        self.c=out["c"]
+        self.h=out["h"]
         return int(out["action"])
 
 def make_agent(env, **kwargs) -> PPOLstmAgent:

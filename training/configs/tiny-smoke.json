@@ -47,13 +47,16 @@
     "entropy_coef": 0.01,
     "value_coef": 0.5,
     "max_grad_norm": 0.5,
-    "amp": false,
+    "amp": true,
     "opponent_pool": {
       "current": 1.0,
       "snapshots": 0.0,
       "heuristics": 0.0
     },
-    "episode_cap": 200
+    "episode_cap": 200,
+    "snapshot_every": 100,
+    "max_snapshots": 15,
+    "pool_probabilities": {"current": 0.05, "snapshots": 0.7, "heuristics": 0.25}
   },
   "model": {
     "conv_channels": [
@@ -81,11 +84,49 @@
     "illegal": -0.01,
     "win": 1.0,
     "loss": -1.0,
-    "seq_bonus": 0.3,
+    "seq_bonus": 0.25,
     "step_penalty": 0.0,
-    "open4_self": 0.05,
-    "open4_opp": 0.05,
-    "open3_self": 0.01,
-    "open3_opp": 0.01
+    "open4_self": 0.03,
+    "open4_opp": 0.03,
+    "open3_self": 0.007,
+    "open3_opp": 0.007
+  },
+  "rewards_extra": {
+    "imm_win_self": 0.03,
+    "imm_win_opp": 0.03,
+    "fork_self": 0.03,
+    "fork_opp": 0.03,
+    "run_self": 0.01,
+    "run_opp": 0.01,
+    "open2_self": 0.005,
+    "open2_opp": 0.005,
+    "closed4_breaker": 0.03,
+    "jack_remove_impact": 0.02,
+    "wild_efficiency": 0.08,
+    "hot_control_self": 0.002,
+    "hot_control_opp": 0.002,
+    "center_control": 0.005,
+    "corner_synergy": 0.005,
+    "coverage_cut": 0.005,
+    "redundancy_penalty": 0.02,
+    "protected_chips": 0.01,
+    "jack_vuln_self": 0.01,
+    "jack_vuln_opp": 0.01,
+    "blunder": 0.05,
+    "mobility": 0.0005,
+    "discard_ev": 0.005,
+    "early_finish_bonus": 0.25
+  },
+  "shaping": {
+    "use_potential": true,
+    "per_term_clip": 0.25,
+    "global_clip": 0.5,
+    "anneal_total_env_steps": 200000,
+    "anneal_min_scale": 0.0
+  },
+  "performance": {
+    "use_torch_features": true,
+    "device": "cuda",
+    "dtype": "float16"
   }
 }

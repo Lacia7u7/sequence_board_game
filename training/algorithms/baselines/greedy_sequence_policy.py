@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 from overrides import overrides
 
 from training.algorithms.base_policy import BasePolicy, PolicyCtx

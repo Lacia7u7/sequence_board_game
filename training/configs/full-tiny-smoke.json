@@ -14,7 +14,7 @@
   },
   "observation": {
     "use_lstm": true,
-    "history_k": 5,
+    "history_k": 10,
     "channels": {
       "team_chips": true,
       "playable_mask_self": true,
@@ -25,7 +25,7 @@
       "extendable_len3_self": true,
       "jack_remove_targets": true,
       "p_cell_playable_next": true,
-      "p_cell_playable_k": [],
+      "p_cell_playable_k": [2,3,4,5,6],
       "p_opponent_targets_next": true
     }
   },
@@ -36,33 +36,32 @@
   },
   "training": {
     "algorithm": "ppo_lstm",
-    "seed": 42,
+    "seed": 123,
     "num_envs": 1,
     "rollout_length": 64,
     "total_updates": 2,
-    "gamma": 0.99,
+    "gamma": 0.995,
     "gae_lambda": 0.95,
-    "lr": 0.0003,
+    "lr": 0.00025,
     "clip_eps": 0.2,
     "entropy_coef": 0.01,
     "value_coef": 0.5,
     "max_grad_norm": 0.5,
-    "amp": false,
+    "amp": true,
     "minibatch_size": 256,
-    "opponent_pool": {
-      "current": 1.0,
-      "snapshots": 1.0,
-      "heuristics": 1.0
-    },
-    "episode_cap": 200
+    "episode_cap": 200,
+    "snapshot_every": 100,
+    "max_snapshots": 30,
+    "pool_probabilities": {"current": 0.025, "snapshots": 0.7, "heuristics": 0.275}
   },
   "model": {
     "conv_channels": [
       32,
-      32,
-      64
+      64,
+      128,
+      128
     ],
-    "lstm_hidden": 64,
+    "lstm_hidden": 128,
     "lstm_layers": 2,
     "value_tanh_bound": 5.0
   },
@@ -79,7 +78,7 @@
     "trueskill": true,
     "eval_interval_updates": 2,
     "opponent_snapshots_keep": 2,
-    "benchmark_agents": ["agents/baseline/blocking_agent.py"],
+    "benchmark_agents": ["agents/baseline/random_agent.py"],
     "evaluated_agents": ["agents/training/ppo_lstm_agent.py"],
     "teams": 1,
     "agents_per_team": 1,
@@ -90,15 +89,53 @@
       }
     }
   },
-  "rewards": {
+   "rewards": {
     "illegal": -0.01,
     "win": 1.0,
     "loss": -1.0,
-    "seq_bonus": 0.3,
+    "seq_bonus": 0.25,
     "step_penalty": 0.0,
-    "open4_self": 0.05,
-    "open4_opp": 0.05,
-    "open3_self": 0.01,
-    "open3_opp": 0.01
+    "open4_self": 0.03,
+    "open4_opp": 0.03,
+    "open3_self": 0.007,
+    "open3_opp": 0.007
+  },
+  "rewards_extra": {
+    "imm_win_self": 0.03,
+    "imm_win_opp": 0.03,
+    "fork_self": 0.03,
+    "fork_opp": 0.03,
+    "run_self": 0.01,
+    "run_opp": 0.01,
+    "open2_self": 0.005,
+    "open2_opp": 0.005,
+    "closed4_breaker": 0.03,
+    "jack_remove_impact": 0.02,
+    "wild_efficiency": 0.08,
+    "hot_control_self": 0.002,
+    "hot_control_opp": 0.002,
+    "center_control": 0.005,
+    "corner_synergy": 0.005,
+    "coverage_cut": 0.005,
+    "redundancy_penalty": 0.02,
+    "protected_chips": 0.01,
+    "jack_vuln_self": 0.01,
+    "jack_vuln_opp": 0.01,
+    "blunder": 0.05,
+    "mobility": 0.0005,
+    "discard_ev": 0.005,
+    "early_finish_bonus": 0.25
+  },
+  "shaping": {
+    "use_potential": true,
+    "per_term_clip": 0.25,
+    "global_clip": 0.5,
+    "anneal_total_env_steps": 200000,
+    "anneal_min_scale": 0.0
+  },
+  "performance":{
+    "use_torch_features": true,
+    "device": "cuda",
+    "dtype": "float32"
   }
 }

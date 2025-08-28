@@ -92,6 +92,65 @@ def main():
 
     # ---- Logging ----
     log = LoggingMux(cfg)
+
+    # >>> NEW: Opponent pool, heuristics, and snapshots >>>
+    try:
+        from ..agents.opponent_pool import OpponentPool  # if you already have this path
+    except Exception:
+        from training.agents.opponent_pool import OpponentPool  # fallback import path
+
+    from ..utils.snapshot_manager import SnapshotManager
+    from ..agents.ppo_frozen_agent import PPOFrozenAgent
+    from ..agents.heuristics import RandomAgent, BlockingAgent, GreedySequenceAgent
+
+    snapshot_every = int(cfg["training"].get("snapshot_every", 400))
+    max_snaps = int(cfg["training"].get("max_snapshots", 8))
+    pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
+
+    # Build the opponent pool
+    pool = OpponentPool()
+    # Add heuristics (env will be passed/used at runtime in select_action)
+    pool.add_heuristic(RandomAgent())
+    pool.add_heuristic(BlockingAgent())
+    pool.add_heuristic(GreedySequenceAgent())
+
+    # Snapshot manager rooted at this run directory
+    snapman = SnapshotManager(log.run_dir, max_keep=max_snaps)
+
+    # Helper to make a frozen PPO agent from a state_dict path
+    policy_kwargs = dict(
+        obs_shape=obs_shape,
+        action_dim=action_dim,
+        conv_channels=cfg["model"]["conv_channels"],
+        lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+        lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+        device=str(device),
+    )
+
+    def _load_snapshot_agent(path: str):
+        return PPOFrozenAgent(state_dict_path=path, **policy_kwargs)
+
+    # Preload any existing snapshots (if resuming)
+    for path in snapman.all():
+        try:
+            pool.add_snapshot(_load_snapshot_agent(path))
+        except Exception:
+            pass
+
+    # Function to (re)seed opponents on the env if supported
+    import random
+
+    def _maybe_set_opponents():
+        if hasattr(env, "set_opponents"):
+            n_opp = getattr(env, "num_opponents", 1)
+            opponents = []
+            for _ in range(n_opp):
+                opponents.append(pool.sample_opponent(
+                    current_policy=_load_snapshot_agent(snapman.latest()) if snapman.latest() else None,
+                    probabilities=pool_probs,
+                ))
+            env.set_opponents(opponents)
     log.hparams(
         {
             "algo": "ppo_lstm",
@@ -179,6 +238,7 @@ def main():
             if done_flag:
                 # episode end; reset env and hidden
                 obs_np, info = env.reset()
+                _maybe_set_opponents()  # NEW: refresh opponents
                 obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)
                 h, c = policy.get_initial_state(batch_size=num_envs)
 
@@ -231,6 +291,15 @@ def main():
             log.scalar("optim/lr", float(stats["optim/lr"]), step=update_idx)
         log.flush()
 
+        # --- NEW: periodic snapshot & add to pool ---
+        if ((update_idx - 1) % snapshot_every) == 0:
+            snap_path = snapman.save(policy, update_idx)
+            try:
+                pool.add_snapshot(_load_snapshot_agent(snap_path))
+                print(f"[snapshots] added {snap_path}")
+            except Exception as e:
+                print(f"[snapshots] failed to load snapshot: {e}")
+
     # Save checkpoint into the active run dir
     run_dir = log.run_dir
     os.makedirs(run_dir, exist_ok=True)
@@ -240,3 +309,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
