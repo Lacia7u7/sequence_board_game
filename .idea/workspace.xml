@@ -5,23 +5,34 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/utils/agent_win_meter.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/baseline/center_heuristic_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/baselines/center_heuristic_policy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/base_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/base_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/baseline/blocking_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/baseline/blocking_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/baseline/greedy_sequence_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/baseline/greedy_sequence_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/baseline/random_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/baseline/random_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/heuristics.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/human_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/human_agent.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/agents/opponent_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/opponent_pool.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/ppo_frozen_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/ppo_frozen_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/agents/training/ppo_lstm_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/training/ppo_lstm_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/algorithms/baselines/greedy_sequence_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/baselines/greedy_sequence_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_eval_runtime_1756418353.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_eval_runtime_1756506485.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756415888.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420064.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420783.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420836.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756492893.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756493006.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756493756.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756494489.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756497857.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498123.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498493.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498714.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498895.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756499082.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756499282.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/default.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/tiny-smoke.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/utils/agent_win_meter.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/agent_win_meter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/utils/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/logging.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +90,7 @@
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/sequence_game_board/sequence_board_game/training&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run/snapshots&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -94,6 +105,7 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\training\runs\smoke\full\run\snapshots" />
       <recent name="E:\sequence_game_board\sequence_board_game\training" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\src\assets" />
       <recent name="E:\sequence_game_board\sequence_board_game\functions-python" />
@@ -269,6 +281,8 @@
       <workItem from="1756341994288" duration="9597000" />
       <workItem from="1756413462500" duration="9800000" />
       <workItem from="1756491114668" duration="13922000" />
+      <workItem from="1756518022648" duration="2312000" />
+      <workItem from="1756531773959" duration="3986000" />
     </task>
     <servers />
   </component>
@@ -331,23 +345,13 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>208</line>
+          <line>214</line>
           <option name="timeStamp" value="177" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
-          <line>223</line>
-          <option name="timeStamp" value="192" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>143</line>
-          <option name="timeStamp" value="193" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
-          <line>230</line>
-          <option name="timeStamp" value="194" />
+          <line>86</line>
+          <option name="timeStamp" value="198" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

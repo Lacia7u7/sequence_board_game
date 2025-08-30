@@ -56,7 +56,8 @@
     "episode_cap": 200,
     "snapshot_every": 100,
     "max_snapshots": 15,
-    "pool_probabilities": {"current": 0.05, "snapshots": 0.7, "heuristics": 0.25}
+    "pool_probabilities": {"current": 0.05, "snapshots": 0.7, "heuristics": 0.25},
+    "resume_from_latest_run": true
   },
   "model": {
     "conv_channels": [

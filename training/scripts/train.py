@@ -10,6 +10,7 @@ from typing import List
 import numpy as np
 import torch
 
+from training.agents.baseline.center_heuristic_agent import CenterHeuristicAgent
 from training.agents.opponent_pool import OpponentPool
 from training.utils.agent_win_meter import AgentWinMeter
 from ..utils.jsonio import load_json, deep_update
@@ -82,6 +83,19 @@ def main():
         device=device,
     )
 
+    # --- Optionally resume current policy from the latest run ---
+    resume_flag = bool(cfg["training"].get("resume_from_latest_run", True))
+    if resume_flag:
+        latest_path = os.path.join(LoggingMux.get_run_dir(cfg), "policy_final.pt")
+        try:
+            state_dict = torch.load(latest_path, map_location=device)
+            strict = bool(cfg["training"].get("resume_load_strict", False))
+            policy.load_state_dict(state_dict, strict=strict)
+            print(f"[resume] loaded latest runt weights into policy: {latest_path} (strict={strict})")
+        except Exception as e:
+            print(f"[resume] failed to load latest run weights from '{latest_path}': {e}")
+
+
     # Per-env LSTM state for learner
     h, c = policy.get_initial_state(batch_size=num_envs)  # (layers, N, H)
 
@@ -120,7 +134,7 @@ def main():
     pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
 
     # Build pool candidates
-    heuristics = [RandomAgent(), BlockingAgent(), GreedySequenceAgent()]
+    heuristics = [RandomAgent(), BlockingAgent(), GreedySequenceAgent(), CenterHeuristicAgent()]
     snapman = SnapshotManager(log.run_dir, max_keep=max_snaps) if snapshot_every > 0 else None
     snapshots = []  # preloaded snapshots (if resuming)
     if snapman is not None:
@@ -159,6 +173,7 @@ def main():
             "value_coef": learner_cfg.value_coef,
             "lr": learner_cfg.lr,
             "device": str(device),
+            "resume_from_latest_run": resume_flag,
         },
         {"hparams/created": 1.0},
     )
@@ -231,7 +246,7 @@ def main():
                     winners = e.game_engine.winner_teams() if hasattr(e, "game_engine") else []
                     learner_team = 0
                     learner_won = (learner_team in (winners or []))
-                    opp_classes = pool.get_env_opponent_classes(i)  # <- nombres de clases
+                    opp_classes = pool.get_env_classes(i, filter = [str(type(policy).__name__)])  # <- nombres de clases
                     meter.update(opp_classes, learner_won)
 
                     hi, ci = policy.get_initial_state(batch_size=1)

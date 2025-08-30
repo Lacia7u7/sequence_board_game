@@ -101,3 +101,9 @@ class LoggingMux:
             self.jsonl.close()
         if self.private_jsonl is not None:
             self.private_jsonl.close()
+    @staticmethod
+    def get_run_dir(cfg):
+        log_cfg = cfg.get("logging", {})
+        base_dir = log_cfg.get("logdir", "runs")
+        run_name = log_cfg.get("run_name", "run")
+        return os.path.join(os.path.abspath(base_dir), run_name)

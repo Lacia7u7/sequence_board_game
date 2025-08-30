@@ -1,4 +1,5 @@
 import random
+from os import name
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -124,14 +125,19 @@ class OpponentPool:
 
         return sampled_agent
 
-    # ---------- Public: advance env to learner's turn ----------
-    def get_env_opponent_classes(self, env_id: int) -> List[str]:
+    def get_env_classes(self, env_id: int, filter: List[str] = None) -> List[str]:
         seats = self._env_seats[env_id]
         classes = []
         for seat in seats:
-            classes.append(type(seat).__name__)
+            name__ = str(type(seat).__name__)
+            if filter is not None:
+                if name__ not in filter :
+                    classes.append(name__)
+            else:
+                classes.append(name__)
         return classes
 
+    # ---------- Public: advance env to learner's turn ----------
     def skipTo(self, learner_policy: Any, env, env_idx: int):
         """
         Advance `env` by letting non-learner seats act until it's the learner's turn.

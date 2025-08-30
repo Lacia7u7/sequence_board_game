@@ -49,7 +49,7 @@ class AgentWinMeter:
         parts = [f"overall {self._global_wins}/{self._global_games} ({self._global_wins/max(1,self._global_games):.1%})"]
         items = sorted(
             ((k, d["wins"], d["games"]) for k, d in self._per_class.items() if d["games"] > 0),
-            key=lambda x: (x[1]/max(1,x[2])), reverse=True
+            key=lambda x: (x[1]/max(1,x[2])), reverse=False
         )[:top]
         parts += [f"{k}: {w}/{g} ({w/max(1,g):.1%})" for k, w, g in items]
         return " | ".join(parts)

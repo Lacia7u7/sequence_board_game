@@ -50,10 +50,12 @@
     "max_grad_norm": 0.5,
     "amp": true,
     "minibatch_size": 128,
-    "episode_cap": 200,
-    "snapshot_every": 100,
-    "max_snapshots": 30,
-    "pool_probabilities": {"current": 0.0, "snapshots": 0.55, "heuristics": 0.45}
+    "episode_cap": 100,
+    "snapshot_every": 10,
+    "max_snapshots": 150,
+    "pool_probabilities": {"current": 0.0, "snapshots": 0.45, "heuristics": 0.55},
+    "resume_from_latest_run": true,
+    "resume_load_strict": false
   },
   "model": {
     "conv_channels": [
