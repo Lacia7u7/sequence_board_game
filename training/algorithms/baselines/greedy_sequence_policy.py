@@ -11,12 +11,12 @@ class GreedySequencePolicy (BasePolicy):
         self.env = env
 
     @overrides
-    def select_action(self, legal_mask: Optional[np.ndarray],  ctx: Optional[PolicyCtx] = None):
+    def select_action(self, legal_mask: Optional[np.ndarray],  ctx: Optional[PolicyCtx] = None) -> int:
         legal = [i for i, m in enumerate(legal_mask.flatten()) if m > 0.5] if legal_mask is not None else range(self.env.action_space.n)
         for act in legal:
             if act < 100:
                 r = act // 10; c = act % 10
-                team = self.env.current_player % self.env.game_config.teams
+                team = self.env.current_player % self.env.gconf.teams
                 for dr, dc in [(0,1),(1,0),(1,1),(1,-1)]:
                     cnt = 1
                     rr, cc = r-dr, c-dc

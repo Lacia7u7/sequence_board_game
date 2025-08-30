@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional, Dict, Any
 import numpy as np
 import torch
+from overrides import overrides
+
 from ..base_agent import ObsAgent
 from ...algorithms.ppo_lstm.ppo_lstm_policy import PPORecurrentPolicy
 from ...envs.sequence_env import SequenceEnv
@@ -32,6 +34,7 @@ class PPOLstmAgent(ObsAgent):
         self.deterministic = bool(deterministic)
         self.h, self.c = self.policy.get_initial_state(batch_size=1)
 
+    @overrides
     def reset(self, env, seat: int) -> None:
         self.h, self.c = self.policy.get_initial_state(batch_size=1)
 
@@ -60,5 +63,3 @@ class PPOLstmAgent(ObsAgent):
         self.h=out["h"]
         return int(out["action"])
 
-def make_agent(env, **kwargs) -> PPOLstmAgent:
-    return PPOLstmAgent(env, **kwargs)

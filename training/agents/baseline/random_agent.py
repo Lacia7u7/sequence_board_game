@@ -8,7 +8,9 @@ from ...algorithms.baselines.random_policy import RandomPolicy
 
 
 class RandomAgent(BaseAgent):
+
     def __init__(self, env=None):
+        super().__init__(env)
         self.policy = RandomPolicy(env=env)
 
     def reset(self, env, seat: int) -> None:
@@ -17,6 +19,3 @@ class RandomAgent(BaseAgent):
     @overrides
     def select_action(self, legal_mask: Optional[np.ndarray], ctx: Optional[Dict[str, Any]] = None) -> int:
         return self.policy.select_action(legal_mask,ctx)
-
-def make_agent(env=None, **kwargs):
-    return RandomAgent(env=env)

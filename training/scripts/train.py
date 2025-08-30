@@ -5,11 +5,13 @@ import json
 import math
 import os
 import time
-from typing import Dict, Any
+from typing import List
 
 import numpy as np
 import torch
 
+from training.agents.opponent_pool import OpponentPool
+from training.utils.agent_win_meter import AgentWinMeter
 from ..utils.jsonio import load_json, deep_update
 from ..utils.seeding import set_all_seeds
 from ..utils.logging import LoggingMux
@@ -41,13 +43,23 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ---- Build single env and get first obs ----
-    env = SequenceEnv(cfg)
-    obs_np, info = env.reset(seed=seed)
-    obs_shape = tuple(obs_np.shape)  # (C,H,W)
-    action_dim = env.action_dim
+    # ---- Build multiple envs ----
+    num_envs = int(cfg["training"].get("num_envs", 1))
+    assert num_envs >= 1, "num_envs must be >= 1"
+    envs: List[SequenceEnv] = [SequenceEnv(cfg) for _ in range(num_envs)]
 
-    # ---- Policy ----
+    # Reset all envs with distinct seeds
+    obs_list, info_list = [], []
+    for i, e in enumerate(envs):
+        obs_i, info_i = e.reset(seed=seed + 1009 * i)
+        obs_list.append(obs_i)
+        info_list.append(info_i)
+
+    obs_np = np.stack(obs_list, axis=0)   # (N, C, H, W) — not yet aligned to learner turn
+    obs_shape = tuple(obs_list[0].shape)
+    action_dim = envs[0].action_dim
+
+    # ---- Policy (learner) ----
     policy = PPORecurrentPolicy(
         obs_shape=obs_shape,
         action_dim=action_dim,
@@ -55,11 +67,10 @@ def main():
         lstm_hidden=int(cfg["model"]["lstm_hidden"]),
         lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
         device=device,
-        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),  # NEW
+        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
     )
 
-    # ---- Storage (single env) ----
-    num_envs = 1  # single SequenceEnv instance
+    # ---- Storage (agent-turn transitions) ----
     rollout_len = int(cfg["training"]["rollout_length"])
     storage = RolloutStorage(
         rollout_length=rollout_len,
@@ -71,11 +82,10 @@ def main():
         device=device,
     )
 
-    # Initial obs into storage
-    obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)  # (1,C,H,W)
-    storage.set_initial_obs(obs_t)
+    # Per-env LSTM state for learner
+    h, c = policy.get_initial_state(batch_size=num_envs)  # (layers, N, H)
 
-    # ---- Learner ----
+    # ---- Learner / PPO ----
     learner_cfg = PPOConfig(
         gamma=float(cfg["training"]["gamma"]),
         gae_lambda=float(cfg["training"]["gae_lambda"]),
@@ -85,7 +95,7 @@ def main():
         max_grad_norm=float(cfg["training"]["max_grad_norm"]),
         lr=float(cfg["training"]["lr"]),
         epochs=int(cfg["training"].get("epochs", 3)),
-        minibatch_size=int(cfg["training"].get("minibatch_size", 512)),
+        minibatch_size=int(cfg["training"].get("minibatch_size", 256)),
         amp=bool(cfg["training"].get("amp", True)),
     )
     learner = PPOLearner(policy, learner_cfg, device=device)
@@ -93,64 +103,49 @@ def main():
     # ---- Logging ----
     log = LoggingMux(cfg)
 
-    # >>> NEW: Opponent pool, heuristics, and snapshots >>>
+    # ---- Opponent pool + snapshots/heuristics ----
     try:
-        from ..agents.opponent_pool import OpponentPool  # if you already have this path
+        from ..agents.opponent_pool import OpponentPool
     except Exception:
-        from training.agents.opponent_pool import OpponentPool  # fallback import path
+        from training.agents.opponent_pool import OpponentPool
 
     from ..utils.snapshot_manager import SnapshotManager
     from ..agents.ppo_frozen_agent import PPOFrozenAgent
-    from ..agents.heuristics import RandomAgent, BlockingAgent, GreedySequenceAgent
+    from ..agents.baseline.random_agent import RandomAgent
+    from ..agents.baseline.blocking_agent import BlockingAgent
+    from ..agents.baseline.greedy_sequence_agent import GreedySequenceAgent
 
-    snapshot_every = int(cfg["training"].get("snapshot_every", 400))
-    max_snaps = int(cfg["training"].get("max_snapshots", 8))
+    snapshot_every = int(cfg["training"].get("snapshot_every", 0))
+    max_snaps = int(cfg["training"].get("max_snapshots", 0))
     pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
 
-    # Build the opponent pool
-    pool = OpponentPool()
-    # Add heuristics (env will be passed/used at runtime in select_action)
-    pool.add_heuristic(RandomAgent())
-    pool.add_heuristic(BlockingAgent())
-    pool.add_heuristic(GreedySequenceAgent())
+    # Build pool candidates
+    heuristics = [RandomAgent(), BlockingAgent(), GreedySequenceAgent()]
+    snapman = SnapshotManager(log.run_dir, max_keep=max_snaps) if snapshot_every > 0 else None
+    snapshots = []  # preloaded snapshots (if resuming)
+    if snapman is not None:
+        policy_kwargs = dict(
+            obs_shape=obs_shape,
+            action_dim=action_dim,
+            conv_channels=cfg["model"]["conv_channels"],
+            lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+            lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+            value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+            device=str(device),
+        )
+        for path in snapman.all():
+            try:
+                snapshots.append(PPOFrozenAgent(state_dict_path=path, **policy_kwargs))
+            except Exception:
+                pass
 
-    # Snapshot manager rooted at this run directory
-    snapman = SnapshotManager(log.run_dir, max_keep=max_snaps)
+    aligned_info, aligned_obs, pool = OpponentPool.create(envs, policy, pool_probs, heuristics, snapshots)
+    meter = AgentWinMeter()  # NEW
 
-    # Helper to make a frozen PPO agent from a state_dict path
-    policy_kwargs = dict(
-        obs_shape=obs_shape,
-        action_dim=action_dim,
-        conv_channels=cfg["model"]["conv_channels"],
-        lstm_hidden=int(cfg["model"]["lstm_hidden"]),
-        lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
-        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
-        device=str(device),
-    )
+    obs_t = torch.from_numpy(np.stack(aligned_obs, axis=0)).to(device, dtype=torch.float32)  # (N,C,H,W)
+    info_list = aligned_info
+    storage.set_initial_obs(obs_t)
 
-    def _load_snapshot_agent(path: str):
-        return PPOFrozenAgent(state_dict_path=path, **policy_kwargs)
-
-    # Preload any existing snapshots (if resuming)
-    for path in snapman.all():
-        try:
-            pool.add_snapshot(_load_snapshot_agent(path))
-        except Exception:
-            pass
-
-    # Function to (re)seed opponents on the env if supported
-    import random
-
-    def _maybe_set_opponents():
-        if hasattr(env, "set_opponents"):
-            n_opp = getattr(env, "num_opponents", 1)
-            opponents = []
-            for _ in range(n_opp):
-                opponents.append(pool.sample_opponent(
-                    current_policy=_load_snapshot_agent(snapman.latest()) if snapman.latest() else None,
-                    probabilities=pool_probs,
-                ))
-            env.set_opponents(opponents)
     log.hparams(
         {
             "algo": "ppo_lstm",
@@ -170,85 +165,108 @@ def main():
 
     total_updates = int(cfg["training"]["total_updates"])
 
-    # LSTM hidden state for the single env
-    h, c = policy.get_initial_state(batch_size=num_envs)
-
     global_step = 0
     t0 = time.time()
 
     for update_idx in range(1, total_updates + 1):
-        # -------- collect rollout --------
+        # -------- Collect rollout over *learner turns* --------
         storage.clear()
-        storage.set_initial_obs(obs_t)  # ensure obs[0] matches current env state
+        storage.set_initial_obs(obs_t)
 
         for t in range(rollout_len):
-            legal_mask_arr = info.get("legal_mask", None)
-            if legal_mask_arr is not None:
-                legal_mask_np = np.asarray(legal_mask_arr, dtype=np.float32)
-                legal_mask_t = torch.from_numpy(legal_mask_np).unsqueeze(0).to(device, dtype=torch.float32)
-            else:
-                legal_mask_t = None
+            # Build legal mask batch at the learner's decision points
+            legal_masks_np = []
+            for info_i in info_list:
+                lm = info_i.get("legal_mask", None)
+                if lm is None:
+                    lm = np.ones((action_dim,), dtype=np.float32)
+                legal_masks_np.append(np.asarray(lm, dtype=np.float32))
+            legal_masks_np = np.stack(legal_masks_np, axis=0)  # (N, A)
 
             with torch.no_grad():
                 out = policy.select_action(
-                    legal_mask=legal_mask_arr,
-                    ctx={
-                        "obs": obs_t,  # (1, C, H, W)
-                        "h0": h,
-                        "c0": c,
-                    }
+                    legal_mask=legal_masks_np,
+                    ctx={"obs": obs_t, "h0": h, "c0": c},
                 )
-            action = int(out["action"].item())
-            logp = out["log_prob"].detach().cpu()
-            value = out["value"].detach().cpu()
 
-            # keep PRE-action state for storage
+            # Actions/logp/value tensors
+            actions = out["action"]
+            if isinstance(actions, torch.Tensor):
+                if actions.dim() > 1:
+                    actions = actions.squeeze(-1)
+                actions_np = actions.detach().cpu().numpy().astype(np.int64).reshape(-1)
+            else:
+                actions_np = np.asarray(actions, dtype=np.int64).reshape(-1)
+
+            logp = out["log_prob"].view(-1).detach().cpu().to(device)
+            value = out["value"].view(-1).detach().cpu().to(device)
+
+            # keep PRE-action LSTM for storage; advance to learner's post-action state
             h_pre = h.clone()
             c_pre = c.clone()
-            # advance hidden state to the post-action one
             h, c = out["h"], out["c"]
 
-            # env step
-            next_obs_np, reward, terminated, truncated, info = env.step(action)
-            done_flag = bool(terminated or truncated)
+            # Step each env with the learner's action, then fast-forward opponents to the next learner turn
+            next_obs_list, next_info_list, reward_list, done_list = [], [], [], []
+            for i, e in enumerate(envs):
+                # 1) learner action
+                _, rew_i, term_i, trunc_i, _ = e.step(int(actions_np[i]))
+                done_after_own = bool(term_i or trunc_i)
 
-            # tensors for storage (N=1)
-            next_obs_t = torch.from_numpy(next_obs_np).unsqueeze(0).to(device, dtype=torch.float32)
-            act_t = torch.tensor([action], device=device, dtype=torch.long)
-            logp_t = logp.view(1)
-            value_t = value.view(1)
-            rew_t = torch.tensor([reward], device=device, dtype=torch.float32)
-            done_t = torch.tensor([1.0 if done_flag else 0.0], device=device, dtype=torch.float32)
+                # 2) fast-forward opponents until it's learner's turn again (or until reset)
+                next_obs_i, next_info_i, rolled_terminal = pool.skipTo(policy, e, i)
+
+                # If either (a) we ended on our own move, or (b) an opponent ended before our next turn:
+                done_i = done_after_own or bool(rolled_terminal)
+
+                next_obs_list.append(next_obs_i)
+                next_info_list.append(next_info_i)
+                reward_list.append(float(rew_i))  # reward is only from the learner's move
+                done_list.append(1.0 if done_i else 0.0)
+
+
+                # If env was reset inside skipTo, also reset the learner's RNN slice for continuity
+                if done_i:
+
+                    winners = e.game_engine.winner_teams() if hasattr(e, "game_engine") else []
+                    learner_team = 0
+                    learner_won = (learner_team in (winners or []))
+                    opp_classes = pool.get_env_opponent_classes(i)  # <- nombres de clases
+                    meter.update(opp_classes, learner_won)
+
+                    hi, ci = policy.get_initial_state(batch_size=1)
+                    h[:, i:i+1, :] = hi
+                    c[:, i:i+1, :] = ci
+
+            # Pack tensors for storage at agent-turn sampling frequency
+            obs_t = torch.from_numpy(np.stack(next_obs_list, axis=0)).to(device, dtype=torch.float32)
+            act_t = torch.from_numpy(actions_np).to(device, dtype=torch.long)
+            rew_t = torch.tensor(reward_list, device=device, dtype=torch.float32)
+            done_t = torch.tensor(done_list, device=device, dtype=torch.float32)
+            legal_mask_t = torch.from_numpy(legal_masks_np).to(device, dtype=torch.float32)
 
             storage.insert(
-                obs_next=next_obs_t,
+                obs_next=obs_t,
                 actions=act_t,
-                log_probs=logp_t,
-                values=value_t,
+                log_probs=logp,
+                values=value,
                 rewards=rew_t,
                 dones=done_t,
-                h_pre=h_pre,   # (L,N,H)
-                c_pre=c_pre,   # (L,N,H)
-                legal_mask=legal_mask_t,  # (1,A) or None
+                h_pre=h_pre,
+                c_pre=c_pre,
+                legal_mask=legal_mask_t,
             )
 
-            obs_t = next_obs_t
-            global_step += 1
+            info_list = next_info_list
+            global_step += num_envs  # learner decisions taken
 
-            if done_flag:
-                # episode end; reset env and hidden
-                obs_np, info = env.reset()
-                _maybe_set_opponents()  # NEW: refresh opponents
-                obs_t = torch.from_numpy(obs_np).unsqueeze(0).to(device, dtype=torch.float32)
-                h, c = policy.get_initial_state(batch_size=num_envs)
-
-        # After rollout, get bootstrap value on last obs and set last hidden state
+        # Bootstrap value on the *next learner-turn* obs and set last hidden
         with torch.no_grad():
             out_val = policy.forward(obs=obs_t, h0=h, c0=c)
-            last_value = out_val["value"].detach()  # (1,1) or (1,)
+            last_value = out_val["value"].detach().view(-1)
         storage.set_last_hidden(h_last=h, c_last=c)
 
-        # GAE + returns
+        # GAE + returns over agent-turn horizon
         storage.compute_returns_and_advantages(
             last_value=last_value, gamma=learner_cfg.gamma, lam=learner_cfg.gae_lambda
         )
@@ -270,10 +288,11 @@ def main():
             f"loss/policy:{stats.get('loss/policy', 0.0):.4f} | "
             f"loss/value:{stats.get('loss/value', 0.0):.4f} | "
             f"loss/entropy:{stats.get('loss/entropy', 0.0):.4f} | "
-            f"fps:{fps:.1f}"
+            f"fps:{fps:.1f} | ",
+            "[eval]", meter.short_text()
         )
 
-        # TB + CSV + JSONL
+        # TB/CSV/JSONL
         log.scalars(
             "loss",
             {
@@ -284,23 +303,36 @@ def main():
             },
             step=update_idx,
         )
+        meter.log_to(log, update_idx)
         log.scalar("perf/fps", float(fps), step=update_idx)
+
         if not math.isnan(ev):
             log.scalar("value/explained_variance", float(ev), step=update_idx)
         if "optim/lr" in stats:
             log.scalar("optim/lr", float(stats["optim/lr"]), step=update_idx)
         log.flush()
 
-        # --- NEW: periodic snapshot & add to pool ---
-        if ((update_idx - 1) % snapshot_every) == 0:
+        # --- Optional: periodic snapshot & add to pool ---
+        if snapman is not None and snapshot_every > 0 and ((update_idx - 1) % snapshot_every) == 0:
             snap_path = snapman.save(policy, update_idx)
             try:
-                pool.add_snapshot(_load_snapshot_agent(snap_path))
+                # Load as a frozen opponent and add to pool
+                frozen = PPOFrozenAgent(
+                    obs_shape=obs_shape,
+                    action_dim=action_dim,
+                    conv_channels=cfg["model"]["conv_channels"],
+                    lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+                    lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+                    value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+                    device=str(device),
+                    state_dict_path=snap_path,
+                )
+                pool.add_snapshot(frozen, max_snapshots=snapman.max_keep)
                 print(f"[snapshots] added {snap_path}")
             except Exception as e:
                 print(f"[snapshots] failed to load snapshot: {e}")
 
-    # Save checkpoint into the active run dir
+    # Save final
     run_dir = log.run_dir
     os.makedirs(run_dir, exist_ok=True)
     torch.save(policy.state_dict(), os.path.join(run_dir, "policy_final.pt"))
@@ -309,4 +341,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -6,7 +6,8 @@ from base_agent import BaseAgent
 from ..ui.render import ConsoleRenderer
 
 class HumanAgent(BaseAgent):
-    def __init__(self, env, **kwargs):
+    def __init__(self, env):
+        super().__init__(env)
         self.env = env
         self.r = ConsoleRenderer()
 

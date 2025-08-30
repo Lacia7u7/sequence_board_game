@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, Tuple
 import numpy as np
 import torch
+from overrides import overrides
 
 from ..agents.base_agent import BaseAgent  # same package as your BaseAgent
 from ..algorithms.ppo_lstm.ppo_lstm_policy import PPORecurrentPolicy
@@ -23,6 +24,7 @@ class PPOFrozenAgent(BaseAgent):
         device: str = "cpu",
         state_dict_path: Optional[str] = None,
     ):
+        super().__init__(None)
         self.device = torch.device(device)
         self.policy = PPORecurrentPolicy(
             obs_shape=tuple(obs_shape),
@@ -33,6 +35,7 @@ class PPOFrozenAgent(BaseAgent):
             device=self.device,
             value_tanh_bound=float(value_tanh_bound),
         )
+        self.state_dict_path = state_dict_path
         if state_dict_path is not None:
             state = torch.load(state_dict_path, map_location=self.device)
             self.policy.load_state_dict(state, strict=True)
@@ -40,6 +43,19 @@ class PPOFrozenAgent(BaseAgent):
         for p in self.policy.parameters():
             p.requires_grad_(False)
         self.h, self.c = self.policy.get_initial_state(batch_size=1)
+        self.policy_kwargs = dict(
+            obs_shape=obs_shape,
+            action_dim=action_dim,
+            conv_channels=conv_channels,
+            lstm_hidden=lstm_hidden,
+            lstm_layers=lstm_layers,
+            value_tanh_bound=value_tanh_bound,
+            device=str(device),
+        )
+
+    @overrides
+    def make_new_agent(self, env):
+        return PPOFrozenAgent(state_dict_path=self.state_dict_path, **self.policy_kwargs)
 
     def reset(self, env, seat: int) -> None:
         self.h, self.c = self.policy.get_initial_state(batch_size=1)

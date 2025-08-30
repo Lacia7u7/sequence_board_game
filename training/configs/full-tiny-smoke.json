@@ -37,22 +37,23 @@
   "training": {
     "algorithm": "ppo_lstm",
     "seed": 123,
-    "num_envs": 1,
+    "num_envs": 8,
     "rollout_length": 64,
     "total_updates": 2,
+    "epochs": 6,
     "gamma": 0.995,
     "gae_lambda": 0.95,
-    "lr": 0.00025,
+    "lr": 0.00015,
     "clip_eps": 0.2,
     "entropy_coef": 0.01,
     "value_coef": 0.5,
     "max_grad_norm": 0.5,
     "amp": true,
-    "minibatch_size": 256,
+    "minibatch_size": 128,
     "episode_cap": 200,
     "snapshot_every": 100,
     "max_snapshots": 30,
-    "pool_probabilities": {"current": 0.025, "snapshots": 0.7, "heuristics": 0.275}
+    "pool_probabilities": {"current": 0.0, "snapshots": 0.55, "heuristics": 0.45}
   },
   "model": {
     "conv_channels": [
