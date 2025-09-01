@@ -337,6 +337,7 @@ class GameEngine:
 
 # re-export helpers
 BOARD_LAYOUT = BOARD_LAYOUT
+assert BOARD_LAYOUT[0][1] == "2S" and BOARD_LAYOUT[0][8] == "9S"
 is_one_eyed_jack = is_one_eyed_jack
 is_two_eyed_jack = is_two_eyed_jack
 EngineError = EngineError

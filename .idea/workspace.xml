@@ -5,34 +5,85 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/agents/baseline/center_heuristic_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/baselines/center_heuristic_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/ui/human_agent_ui.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/human_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/human_agent.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/agents/opponent_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/opponent_pool.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_eval_runtime_1756418353.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_eval_runtime_1756506485.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756415888.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420064.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420783.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756420836.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756492893.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756493006.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756493756.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756494489.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756497857.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498123.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498493.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498714.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756498895.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756499082.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756499282.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/default.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/default.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_eval_runtime_1756532746.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756532764.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/_runtime_1756534610.json" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/tiny-smoke.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/board_layout.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/board_layout.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/engine_core.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/engine_core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/envs/sequence_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/envs/sequence_env.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756147382.Carlos_ASUS2023.32408.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756147394.Carlos_ASUS2023.32408.2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756147511.Carlos_ASUS2023.32408.4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756148415.Carlos_ASUS2023.32408.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756148543.Carlos_ASUS2023.32408.12" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756150626.Carlos_ASUS2023.32408.14" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756150750.Carlos_ASUS2023.32408.16" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756152360.Carlos_ASUS2023.32408.18" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756153434.Carlos_ASUS2023.32408.20" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756154848.Carlos_ASUS2023.32408.26" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756157785.Carlos_ASUS2023.32408.32" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756188584.Carlos_ASUS2023.12476.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756348207.Carlos_ASUS2023.35824.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756348982.Carlos_ASUS2023.35824.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756349097.Carlos_ASUS2023.35824.12" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756349237.Carlos_ASUS2023.35824.18" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756415896.Carlos_ASUS2023.10532.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756417421.Carlos_ASUS2023.10532.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756417774.Carlos_ASUS2023.10532.8" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756420064.Carlos_ASUS2023.10532.14" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756420784.Carlos_ASUS2023.10532.20" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756420852.Carlos_ASUS2023.10532.22" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756492144.Carlos_ASUS2023.23268.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756492894.Carlos_ASUS2023.23268.2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493006.Carlos_ASUS2023.23268.3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493590.Carlos_ASUS2023.23268.4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493611.Carlos_ASUS2023.23268.5" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493636.Carlos_ASUS2023.23268.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493655.Carlos_ASUS2023.23268.7" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493665.Carlos_ASUS2023.23268.8" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493756.Carlos_ASUS2023.23268.9" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756493833.Carlos_ASUS2023.23268.10" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756494203.Carlos_ASUS2023.23268.12" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756494252.Carlos_ASUS2023.23268.13" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756494319.Carlos_ASUS2023.23268.14" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756494489.Carlos_ASUS2023.23268.15" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756497420.Carlos_ASUS2023.23268.17" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756497612.Carlos_ASUS2023.23268.18" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756497858.Carlos_ASUS2023.23268.19" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498124.Carlos_ASUS2023.23268.20" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498284.Carlos_ASUS2023.23268.21" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498289.Carlos_ASUS2023.23268.23" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498352.Carlos_ASUS2023.23268.25" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498493.Carlos_ASUS2023.23268.27" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498714.Carlos_ASUS2023.23268.29" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756498895.Carlos_ASUS2023.23268.31" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499073.Carlos_ASUS2023.23268.32" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499082.Carlos_ASUS2023.23268.34" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499282.Carlos_ASUS2023.23268.35" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499378.Carlos_ASUS2023.23268.36" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499912.Carlos_ASUS2023.23268.38" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756499996.Carlos_ASUS2023.23268.40" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756518847.Carlos_ASUS2023.45612.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756518980.Carlos_ASUS2023.45612.1" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756519012.Carlos_ASUS2023.45612.3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756519114.Carlos_ASUS2023.45612.4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756519242.Carlos_ASUS2023.45612.5" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756519466.Carlos_ASUS2023.45612.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756532797.Carlos_ASUS2023.44064.0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756534196.Carlos_ASUS2023.44064.2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756534547.Carlos_ASUS2023.44064.4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756534612.Carlos_ASUS2023.44064.6" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/eval.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/agent_win_meter.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/agent_win_meter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/utils/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/logging.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/utils/seeding.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/seeding.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -283,6 +334,10 @@
       <workItem from="1756491114668" duration="13922000" />
       <workItem from="1756518022648" duration="2312000" />
       <workItem from="1756531773959" duration="3986000" />
+      <workItem from="1756595346713" duration="9705000" />
+      <workItem from="1756658990992" duration="1175000" />
+      <workItem from="1756678785387" duration="7795000" />
+      <workItem from="1756742749365" duration="13644000" />
     </task>
     <servers />
   </component>
@@ -303,55 +358,55 @@
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/roomplay/roomplay.ipynb</url>
           <line>563</line>
           <option name="timeStamp" value="75" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/roomplay/roomplay.ipynb</url>
           <line>377</line>
           <option name="timeStamp" value="77" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/roomplay/roomplay.ipynb</url>
           <line>353</line>
           <option name="timeStamp" value="78" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/starter.ipynb</url>
-          <line>129</line>
+          <line>131</line>
           <option name="timeStamp" value="133" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/starter.ipynb</url>
           <line>40</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/scripts/selfplay.py</url>
           <line>9</line>
           <option name="timeStamp" value="113" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/scripts/eval.py</url>
-          <line>131</line>
+          <line>136</line>
           <option name="timeStamp" value="115" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/base_agent.py</url>
           <line>19</line>
           <option name="timeStamp" value="173" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>214</line>
+          <line>212</line>
           <option name="timeStamp" value="177" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/training/scripts/train.py</url>
-          <line>86</line>
-          <option name="timeStamp" value="198" />
+        <line-breakpoint suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/engine/engine_core.py</url>
+          <line>278</line>
+          <option name="timeStamp" value="233" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

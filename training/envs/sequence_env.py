@@ -49,7 +49,7 @@ class SequenceEnv:
         # Action space
         self.max_hand: int = int(config.get("action_space", {}).get("max_hand", 7))
         include_pass = bool(config.get("action_space", {}).get("include_pass", False))
-        self._include_pass: bool = include_pass
+        self._include_pass: bfool = include_pass
         self.action_dim: int = 100 + self.max_hand + (1 if include_pass else 0)
 
         # Episode cap

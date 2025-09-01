@@ -140,36 +140,55 @@ class OpponentPool:
     # ---------- Public: advance env to learner's turn ----------
     def skipTo(self, learner_policy: Any, env, env_idx: int):
         """
-        Advance `env` by letting non-learner seats act until it's the learner's turn.
-        Returns (obs_np, info_dict, rolled_terminal), where:
-         - obs_np and info_dict are for the learner seat's *current* turn
-         - rolled_terminal=True iff an episode ended during the skipping (i.e., opponent won)
+        Avanza 'env' dejando que asientos no-learner jueguen hasta que sea el turno del learner.
+        Devuelve (obs_np, info_dict, rolled_terminal):
+          - obs_np, info_dict: observación y máscara del turno ACTUAL del learner
+          - rolled_terminal: True si el episodio terminó durante el skipping (p.ej. el rival ganó)
+        No auto-reset: el caller debe llamar a on_env_reset(env_idx, env) si rolled_terminal=True.
         """
         self.ensure_env(env_idx, env)
 
         seats = self._env_seats[env_idx]
-        # Find the learner seat in this env (usually 0 by construction)
         try:
             learner_seat = seats.index(learner_policy)
         except ValueError:
-            learner_seat = 0  # fallback
+            learner_seat = 0
+
+        def _is_done() -> bool:
+            # Soporta motores con o sin is_terminal()
+            try:
+                return bool(env.game_engine.is_terminal())
+            except Exception:
+                try:
+                    return bool(env.game_engine.winner_teams())
+                except Exception:
+                    winners = getattr(getattr(env, "game_engine", None), "state", None)
+                    winners = getattr(winners, "winners", []) if winners is not None else []
+                    return bool(winners)
 
         rolled_terminal = False
 
-        # Loop until learner's turn (or until reset happens)
-        while True:
-            # If it's learner's turn, return the learner's observation+mask
+        # Ya terminal antes de saltar: no "rodó" durante el skip
+        if _is_done():
+            return None, None, False
+
+        MAX_HOPS = 512  # seguridad ante bucles
+
+        for _ in range(MAX_HOPS):
+            # ¿Ya es el turno del learner? Devolver su obs + legal
             if int(env.current_player) == int(learner_seat):
                 legal = env._legal_for(env.current_player)
-                obs_np = env.get_obs()
-                info = {"current_player": env.current_player, "legal_mask": env._legal_mask(legal)}
+                obs_np = env.get_obs()  # perspectiva del current_player
+                info = {
+                    "current_player": env.current_player,
+                    "legal_mask": env._legal_mask(legal),
+                }
                 return obs_np, info, rolled_terminal
 
-            # Opponent's turn: pick that agent and make a move
+            # Turno de oponente: seleccionar y ejecutar acción
             seat = int(env.current_player)
             opp_agent = seats[seat]
 
-            # Build obs + legal mask for that seat
             obs_np = env.get_obs()
             legal = env._legal_for(seat)
             legal_mask = env._legal_mask(legal)
@@ -183,15 +202,18 @@ class OpponentPool:
                 legal_mask=legal_mask,
             )
 
-            # Step env with opponent action
+            # Ejecutar jugada
             _, _, terminated, truncated, _ = env.step(int(action))
 
-            # If episode ended, reset env and re-seat opponents; mark rolled_terminal
             if terminated or truncated:
+                # El episodio terminó durante el skipping (oponente hizo la última jugada)
                 rolled_terminal = True
-                obs0, _ = env.reset()
-                self.on_env_reset(env_idx, env)
-                # continue—loop will deliver the learner's first-turn obs after reset
+                return None, None, True
+
+            # si no terminó, seguirá el loop con el siguiente current_player
+
+        # Si llegamos aquí, probablemente un bucle por acciones ilegales o bug
+        raise RuntimeError("skipTo: excedido MAX_HOPS; posible bucle de acciones ilegales")
 
     # ---------- Agent action adapter ----------
 

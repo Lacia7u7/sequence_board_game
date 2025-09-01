@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, json, importlib
 from typing import Dict, Any, List, Tuple, Optional
 
+from training.utils.seeding import set_seeds_from_cfg
 from ..envs.sequence_env import SequenceEnv
 from ..agents.selfplay_manager import SelfPlayManager
 from ..agents.base_agent import BaseAgent
@@ -20,7 +21,7 @@ def load_agent(path: str, env, kwargs: Dict[str, Any]) -> BaseAgent:
     mod = importlib.import_module(mod_path)
     if hasattr(mod, "make_agent"):
         return mod.make_agent(env=env, **kwargs)
-    for cls_name in ("Agent","BlockingAgent","GreedySequenceAgent","RandomAgent","PPOLstmAgent","HumanAgent"):
+    for cls_name in ("Agent","BlockingAgent","GreedySequenceAgent","RandomAgent","PPOLstmAgent","HumanAgent", "CenterHeuristicAgent"):
         if hasattr(mod, cls_name):
             cls = getattr(mod, cls_name)
             try:
@@ -48,7 +49,9 @@ def main():
     use_ts  = bool(eval_cfg.get("trueskill", True))
 
     env = SequenceEnv(cfg)
-    obs,info = env.reset(seed=cfg.get("seed", None))
+    seed = set_seeds_from_cfg(cfg, "evaluation")
+
+    obs,info = env.reset(seed=seed)
 
     bench_paths: List[str] = list(eval_cfg.get("benchmark_agents", []))
     eval_paths:  List[str] = list(eval_cfg.get("evaluated_agents", []))
@@ -72,7 +75,9 @@ def main():
         if ts_sys is not None and name not in ts_r:
             ts_r[name] = ts_sys.create() if hasattr(ts_sys, "create") else None
 
+
     summary: List[Dict[str, Any]] = []
+
     for ename, eagent in evals:
         ensure(ename)
         for bname, bagent in benches:
@@ -80,10 +85,10 @@ def main():
             w = l = d = 0
             for ep in range(args.episodes):
                 if ep % 2 == 0:
-                    terminated, truncated, winners = play_match(env, eagent, bagent, seed=ep)
+                    terminated, truncated, winners = play_match(env, eagent, bagent, seed=ep*seed)
                     e_won = (0 in winners)
                 else:
-                    terminated, truncated, winners = play_match(env, bagent, eagent, seed=ep)
+                    terminated, truncated, winners = play_match(env, bagent, eagent, seed=ep*seed)
                     e_won = (1 in winners)
 
                 if winners:

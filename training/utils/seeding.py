@@ -4,6 +4,18 @@ import os
 import random
 import numpy as np
 
+
+def set_seeds_from_cfg(cfg, path):
+    seed = cfg.get(path, {}).get("seed", "random")
+    if seed == "random":
+        seed = np.random.randint(2 ** 24)
+    else:
+        seed = int(seed)
+
+    set_all_seeds(seed)
+
+    return seed
+
 def set_all_seeds(seed: int) -> None:
     seed = int(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)

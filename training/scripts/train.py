@@ -14,7 +14,7 @@ from training.agents.baseline.center_heuristic_agent import CenterHeuristicAgent
 from training.agents.opponent_pool import OpponentPool
 from training.utils.agent_win_meter import AgentWinMeter
 from ..utils.jsonio import load_json, deep_update
-from ..utils.seeding import set_all_seeds
+from ..utils.seeding import set_all_seeds, set_seeds_from_cfg
 from ..utils.logging import LoggingMux
 from ..envs.sequence_env import SequenceEnv
 from ..algorithms.ppo_lstm.learner import PPOLearner, PPOConfig
@@ -39,8 +39,7 @@ def main():
     if args.override:
         cfg = deep_update(cfg, json.loads(args.override))
 
-    seed = int(cfg.get("training", {}).get("seed", 123))
-    set_all_seeds(seed)
+    seed = set_seeds_from_cfg(cfg, "training")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -134,7 +133,7 @@ def main():
     pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
 
     # Build pool candidates
-    heuristics = [RandomAgent(), BlockingAgent(), GreedySequenceAgent(), CenterHeuristicAgent()]
+    heuristics = [CenterHeuristicAgent()]
     snapman = SnapshotManager(log.run_dir, max_keep=max_snaps) if snapshot_every > 0 else None
     snapshots = []  # preloaded snapshots (if resuming)
     if snapman is not None:
@@ -228,30 +227,62 @@ def main():
                 _, rew_i, term_i, trunc_i, _ = e.step(int(actions_np[i]))
                 done_after_own = bool(term_i or trunc_i)
 
-                # 2) fast-forward opponents until it's learner's turn again (or until reset)
-                next_obs_i, next_info_i, rolled_terminal = pool.skipTo(policy, e, i)
+                # reward base del learner (solo su jugada)
+                reward_i = float(rew_i)
 
-                # If either (a) we ended on our own move, or (b) an opponent ended before our next turn:
+                # 2) si no terminó en nuestra jugada, avanzar con oponentes
+                next_obs_i = None
+                next_info_i = None
+                rolled_terminal = False
+                if not done_after_own:
+                    next_obs_i, next_info_i, rolled_terminal = pool.skipTo(policy, e, i)
+
+                # ¿terminó el episodio en total?
                 done_i = done_after_own or bool(rolled_terminal)
 
-                next_obs_list.append(next_obs_i)
-                next_info_list.append(next_info_i)
-                reward_list.append(float(rew_i))  # reward is only from the learner's move
-                done_list.append(1.0 if done_i else 0.0)
+                # 3) Si terminó por jugada del oponente, añade outcome al reward del learner
+                if (not done_after_own) and rolled_terminal:
+                    # quién ganó
+                    try:
+                        winners = list(e.game_engine.winner_teams())
+                    except Exception:
+                        winners = list(getattr(getattr(e, "game_engine", None), "state", {}).get("winners", [])) or []
+                    learner_team = 0  # asiento 0 -> team 0 en tu config
+                    if winners:
+                        reward_i += (e.R_WIN if learner_team in winners else e.R_LOSS)
 
-
-                # If env was reset inside skipTo, also reset the learner's RNN slice for continuity
+                # 4) Si el env terminó, resetea y alinea para mantener el batch lleno
                 if done_i:
-
-                    winners = e.game_engine.winner_teams() if hasattr(e, "game_engine") else []
+                    # contabiliza win/loss antes del reset
+                    try:
+                        winners = list(e.game_engine.winner_teams())
+                    except Exception:
+                        winners = list(getattr(getattr(e, "game_engine", None), "state", {}).get("winners", [])) or []
                     learner_team = 0
-                    learner_won = (learner_team in (winners or []))
-                    opp_classes = pool.get_env_classes(i, filter = [str(type(policy).__name__)])  # <- nombres de clases
+                    learner_won = (learner_team in winners)
+                    opp_classes = pool.get_env_classes(i, filter=[str(type(policy).__name__)])
                     meter.update(opp_classes, learner_won)
 
+                    # reset de hidden para ese env en la policy
                     hi, ci = policy.get_initial_state(batch_size=1)
                     h[:, i:i+1, :] = hi
                     c[:, i:i+1, :] = ci
+
+                    # reset del env + re-sampleo de oponentes y realineación al siguiente turno del learner
+                    e.reset()                       # nuevo episodio
+                    pool.on_env_reset(i, e)         # reasignar seats para el episodio nuevo
+                    aligned_obs_i, aligned_info_i, _ = pool.skipTo(policy, e, i)
+
+                    # usar esta obs como "next_obs" del paso actual (aunque done=1)
+                    next_obs_list.append(aligned_obs_i)
+                    next_info_list.append(aligned_info_i)
+                else:
+                    # episodio sigue: usamos lo que devolvió skipTo
+                    next_obs_list.append(next_obs_i)
+                    next_info_list.append(next_info_i)
+
+                reward_list.append(reward_i)
+                done_list.append(1.0 if done_i else 0.0)
 
             # Pack tensors for storage at agent-turn sampling frequency
             obs_t = torch.from_numpy(np.stack(next_obs_list, axis=0)).to(device, dtype=torch.float32)

@@ -1,44 +1,59 @@
+# training/engine/board_layout.py
 """
-Defines the static card layout for the Sequence board (10x10 grid).
-Each cell has a 'card' string or 'BONUS' for corner wild cells.
+Loads the static card layout for the 10x10 Sequence board from JSON.
+Each cell is a card code (e.g., '7H') or 'BONUS' for corner wild cells.
 """
-from .cards import RANKS, SUITS
 
-BOARD_LAYOUT = [[None for _ in range(10)] for _ in range(10)]
-# Corners
-for (r,c) in [(0,0),(0,9),(9,0),(9,9)]:
-    BOARD_LAYOUT[r][c] = "BONUS"
+from __future__ import annotations
 
-non_jack_cards = [f"{rank}{suit}" for suit in SUITS for rank in RANKS if rank != "J"]
-assert len(non_jack_cards) == 48
+import json
+from pathlib import Path
+from typing import Tuple, List
 
-coords = []
-N = 10
-layer = 0
-while layer < N/2:
-    r = layer
-    for c in range(layer, N-layer):
-        if BOARD_LAYOUT[r][c] is None:
-            coords.append((r,c))
-    c = N - layer - 1
-    for r in range(layer+1, N-layer-1):
-        if BOARD_LAYOUT[r][c] is None:
-            coords.append((r,c))
-    r = N - layer - 1
-    for c in range(N-layer-1, layer-1, -1):
-        if BOARD_LAYOUT[r][c] is None:
-            coords.append((r,c))
-    c = layer
-    for r in range(N-layer-2, layer, -1):
-        if BOARD_LAYOUT[r][c] is None:
-            coords.append((r,c))
-    layer += 1
+__all__ = ["BOARD_LAYOUT"]
 
-assert len(coords) == 96
-for i, card in enumerate(non_jack_cards):
-    r, c = coords[i]
-    BOARD_LAYOUT[r][c] = card
-    r2, c2 = coords[48 + i]
-    BOARD_LAYOUT[r2][c2] = card
+def _default_json_path() -> Path:
+    # this file: training/engine/board_layout.py
+    # assets:     training/assets/boards/standard_10x10.json
+    return (Path(__file__).resolve().parents[1] / "assets" / "boards" / "standard_10x10.json")
 
-BOARD_LAYOUT = tuple(tuple(cell for cell in row) for row in BOARD_LAYOUT)
+def _load_board_layout_json(path: Path | None = None) -> List[List[str]]:
+    src = Path(path) if path else _default_json_path()
+    with src.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    rows = int(data.get("rows", 0))
+    cols = int(data.get("cols", 0))
+    cells = data.get("cells", None)
+
+    if rows != 10 or cols != 10:
+        raise ValueError(f"Board JSON must be 10x10, got {rows}x{cols} at {src}")
+
+    if not (isinstance(cells, list) and len(cells) == 10 and all(isinstance(r, list) and len(r) == 10 for r in cells)):
+        raise ValueError(f"Invalid 'cells' shape in {src}")
+
+    return cells  # type: ignore
+
+def _freeze(grid: List[List[str]]) -> Tuple[Tuple[str, ...], ...]:
+    return tuple(tuple(cell for cell in row) for row in grid)
+
+def _validate(grid: List[List[str]]) -> None:
+    # Basic checks: corners are BONUS; 96 non-BONUS cells; each non-jack card appears exactly twice
+    if grid[0][0] != "BONUS" or grid[0][9] != "BONUS" or grid[9][0] != "BONUS" or grid[9][9] != "BONUS":
+        raise ValueError("Corners must be 'BONUS'")
+
+    flattened = [cell for row in grid for cell in row if cell != "BONUS"]
+    if len(flattened) != 96:
+        raise ValueError(f"Expected 96 non-BONUS cells, found {len(flattened)}")
+
+    from collections import Counter
+    counts = Counter(flattened)
+    # Jacks shouldn't be printed on the board; every non-jack card should appear twice
+    bad = {card: n for card, n in counts.items() if card.endswith("J") or n != 2}
+    if bad:
+        raise ValueError(f"Card multiplicities invalid (expect each non-jack exactly twice): {bad}")
+
+# Load, validate, and freeze
+_GRID = _load_board_layout_json()
+_validate(_GRID)
+BOARD_LAYOUT = _freeze(_GRID)
