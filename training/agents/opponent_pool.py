@@ -117,11 +117,17 @@ class OpponentPool:
         sampled_agent = None
 
         if bucket_type == "snapshots":
-            sampled_agent =random.choice(self.snapshots)
+            if len(self.snapshots)>0:
+                sampled_agent =random.choice(self.snapshots)
+            else:
+                sampled_agent = random.choice(self.heuristics)
         elif bucket_type ==  "heuristics":
             sampled_agent = random.choice(self.heuristics)
         else:
             sampled_agent =  self.current_policy
+
+        if sampled_agent is None:
+            sampled_agent = random.choice(self.heuristics)
 
         return sampled_agent
 
@@ -203,7 +209,7 @@ class OpponentPool:
             )
 
             # Ejecutar jugada
-            _, _, terminated, truncated, _ = env.step(int(action))
+            _, _, terminated, truncated, _ = env.step(int(action), fast_run=True)
 
             if terminated or truncated:
                 # El episodio terminó durante el skipping (oponente hizo la última jugada)

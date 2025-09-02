@@ -28,6 +28,11 @@ def explained_variance(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         return float("nan")
     return 1.0 - float(np.var(y_true - y_pred)) / (var_y + 1e-8)
 
+def linear_schedule(start: float, end: float, progress: float) -> float:
+    """progress in [0,1]"""
+    p = min(max(progress, 0.0), 1.0)
+    return start + (end - start) * p
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -67,7 +72,9 @@ def main():
         lstm_hidden=int(cfg["model"]["lstm_hidden"]),
         lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
         device=device,
+        model_cfg=cfg.get("model", {}),
         value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+        deterministic=bool(cfg.get("evaluation", {}).get("deterministic_policy", False)),
     )
 
     # ---- Storage (agent-turn transitions) ----
@@ -116,6 +123,12 @@ def main():
     # ---- Logging ----
     log = LoggingMux(cfg)
 
+    ent_start = float(cfg["training"].get("entropy_coef", 0.03))
+    ent_end = float(cfg["training"].get("entropy_coef_final", ent_start))
+
+    lr_start = float(cfg["training"].get("lr", 1.5e-4))
+    lr_end = float(cfg["training"].get("lr_final", lr_start))
+
     # ---- Opponent pool + snapshots/heuristics ----
     try:
         from ..agents.opponent_pool import OpponentPool
@@ -133,7 +146,7 @@ def main():
     pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
 
     # Build pool candidates
-    heuristics = [CenterHeuristicAgent()]
+    heuristics = [GreedySequenceAgent(),CenterHeuristicAgent()]
     snapman = SnapshotManager(log.run_dir, max_keep=max_snaps) if snapshot_every > 0 else None
     snapshots = []  # preloaded snapshots (if resuming)
     if snapman is not None:
@@ -145,6 +158,7 @@ def main():
             lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
             value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
             device=str(device),
+            model_cfg=cfg["model"]
         )
         for path in snapman.all():
             try:
@@ -183,6 +197,19 @@ def main():
     t0 = time.time()
 
     for update_idx in range(1, total_updates + 1):
+        # progreso 0.0 en el 1er update, 1.0 en el último
+        progress = (update_idx - 1) / max(1, total_updates - 1)
+
+        # entropy y LR lineales
+        learner.cfg.entropy_coef = linear_schedule(ent_start, ent_end, progress)
+        lr_now = linear_schedule(lr_start, lr_end, progress)
+        for g in learner.optimizer.param_groups:
+            g["lr"] = lr_now
+
+        # (opcional) loggea para verlo en TB
+        log.scalar("sched/entropy_coef", float(learner.cfg.entropy_coef), step=update_idx)
+        log.scalar("sched/lr", float(lr_now), step=update_idx)
+
         # -------- Collect rollout over *learner turns* --------
         storage.clear()
         storage.set_initial_obs(obs_t)
@@ -371,6 +398,7 @@ def main():
                     lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
                     value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
                     device=str(device),
+                    model_cfg=cfg["model"],
                     state_dict_path=snap_path,
                 )
                 pool.add_snapshot(frozen, max_snapshots=snapman.max_keep)

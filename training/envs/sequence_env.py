@@ -163,30 +163,33 @@ class SequenceEnv:
             public=self._public_summary(),
         )
 
-    def step(self, action: int):
+    def step(self, action: int, fast_run: bool = False):
+        """
+        fast_run=True: ejecuta la jugada en el engine y devuelve obs/terminated/truncated/info,
+                       pero NO calcula recompensas ni shaping pesados. reward=None.
+        fast_run=False (por defecto): comportamiento completo (rewards + breakdown).
+        """
         st_before = self._state()
         acting_player = self.current_player
         acting_team = self._player_team(acting_player)
 
-        # BEFORE features
-        seq_count_before = int(self._sequences_for_team(st_before, acting_team))
-        feats_b = self._features_bundle(st_before, acting_team)     # one heavy scan
-        self_b, opp_b = feats_b["self"], feats_b["opp"]
-        coverage_clean_b, mobility_b = feats_b["coverage_clean"], feats_b["mobility"]
-
-        # Legal
+        # --- LEGALIDAD (siempre necesaria) ---
         legal = self._legal_for(self.current_player)
         mask = self._legal_mask(legal)
 
-        # Illegal action
+        # ILEGAL
         if not (0 <= action < self.action_dim) or mask[action] < 0.5:
             obs = encode_board_state(
                 st_before, self.current_player, self.config, legal=legal, public=self._public_summary()
             )
             info = {"current_player": self.current_player, "legal_mask": mask, "illegal": True}
-            return obs, float(self.R_ILLEGAL), False, False, info
+            if fast_run:
+                # mismo shape del tuple, pero reward=None y sin breakdown pesado
+                return obs, None, False, False, info
+            else:
+                return obs, float(self.R_ILLEGAL), False, False, info
 
-        # Map action
+        # --- MAPEO DE ACCIÓN A MOVE ---
         if action < 100:
             r, c = divmod(action, 10)
             move = self._resolve_cell_action(self.current_player, r, c)
@@ -197,7 +200,7 @@ class SequenceEnv:
             else:
                 move = self._resolve_discard_action(self.current_player, idx)
 
-        # Engine step
+        # --- APLICAR EN ENGINE ---
         try:
             st_after, move_record = self.game_engine.step(move)
         except EngineError:
@@ -205,11 +208,51 @@ class SequenceEnv:
                 st_before, self.current_player, self.config, legal=legal, public=self._public_summary()
             )
             info = {"current_player": self.current_player, "legal_mask": mask, "engine_reject": True}
-            return obs, float(self.R_ILLEGAL), False, False, info
+            if fast_run:
+                return obs, None, False, False, info
+            else:
+                return obs, float(self.R_ILLEGAL), False, False, info
 
-        # Terminal?
-        winners = self.game_engine.winner_teams() if hasattr(self.game_engine, "winner_teams") else (list(getattr(st_after, "winners", [])) if st_after else [])
+        # --- TERMINAL? (siempre lo calculamos; útil incluso en fast_run) ---
+        winners = (
+            self.game_engine.winner_teams()
+            if hasattr(self.game_engine, "winner_teams")
+            else (list(getattr(st_after, "winners", [])) if st_after else [])
+        )
         terminated = bool(winners)
+
+        # --- SI ES FAST RUN: OMITIR CUALQUIER CÓMPUTO PESADO DE REWARD ---
+        if fast_run:
+            # Siguiente turno / obs / legal
+            self.current_player = self._seat_index()
+            next_legal = self._legal_for(self.current_player)
+            obs = encode_board_state(
+                self._state(), self.current_player, self.config, legal=next_legal, public=self._public_summary()
+            )
+
+            # Contadores y truncation por límite de pasos (mantenemos coherencia del episodio)
+            self._steps_elapsed += 1
+            self._global_step += 1
+            truncated = False
+            if not terminated and self._step_limit > 0 and self._steps_elapsed >= self._step_limit:
+                truncated = True
+
+            info = {
+                "current_player": self.current_player,
+                "legal_mask": self._legal_mask(next_legal),
+                "move": move_record,
+                "winners": winners,
+                "fast_run": True,  # bandera para que el caller sepa que no hay reward
+            }
+            # reward=None para indicar explícitamente que no se calculó
+            return obs, None, terminated, truncated, info
+
+        # ---------- MODO COMPLETO (recompensas + shaping) ----------
+        # BEFORE features (un solo escaneo pesado)
+        seq_count_before = int(self._sequences_for_team(st_before, acting_team))
+        feats_b = self._features_bundle(st_before, acting_team)
+        self_b, opp_b = feats_b["self"], feats_b["opp"]
+        coverage_clean_b, mobility_b = feats_b["coverage_clean"], feats_b["mobility"]
 
         # AFTER features
         seq_count_after = int(self._sequences_for_team(st_after, acting_team))
@@ -232,16 +275,17 @@ class SequenceEnv:
         # Optional per-step penalty
         reward += self.R_STEP_PENALTY
 
-        # -------- Potential-based shaping over normalized features --------
+        # Potential-based shaping
         phi_breakdown, phi_sum_clipped, phi_sum_raw, anneal_scale = self._potential_shaping(
             self_b, opp_b, coverage_clean_b, mobility_b,
             self_a, opp_a, coverage_clean_a, mobility_a
         )
         reward += phi_sum_clipped
 
-        # -------- Action-conditional extras (small, clipped) --------
-        # closed4_breaker proxy (uses open4 gain + new sequences)
-        contrib_closed4 = self.W_CLOSED4_BREAKER * ((self_a["open4"] - self_b["open4"]) + max(0, seq_count_after - seq_count_before))
+        # -------- Extras (clipped) --------
+        # closed4_breaker
+        contrib_closed4 = self.W_CLOSED4_BREAKER * (
+                    (self_a["open4"] - self_b["open4"]) + max(0, seq_count_after - seq_count_before))
         contrib_closed4 = float(np.clip(contrib_closed4, -self.SHAPING_PER_TERM_CLIP, self.SHAPING_PER_TERM_CLIP))
         reward += contrib_closed4
 
@@ -272,7 +316,8 @@ class SequenceEnv:
             tr = move_record["target"].get("r")
             tc = move_record["target"].get("c")
             if tr is not None and tc is not None:
-                improved_threats = (self_a["open4"]+self_a["open3"]+self_a["open2"]) - (self_b["open4"]+self_b["open3"]+self_b["open2"])
+                improved_threats = (self_a["open4"] + self_a["open3"] + self_a["open2"]) - (
+                            self_b["open4"] + self_b["open3"] + self_b["open2"])
                 if improved_threats <= 0 and (seq_count_after - seq_count_before) <= 0:
                     self._ensure_windows()
                     board_after = st_after.board  # type: ignore
@@ -280,9 +325,9 @@ class SequenceEnv:
                     for w in self._WINDOWS_CACHE:
                         if (tr, tc) in w:
                             s = 0
-                            for (r,c) in w:
-                                printed = BOARD_LAYOUT[r][c]
-                                chip = board_after[r][c]
+                            for (rr, cc) in w:
+                                printed = BOARD_LAYOUT[rr][cc]
+                                chip = board_after[rr][cc]
                                 if printed == "BONUS" or chip == acting_team:
                                     s += 1
                             if s == 5:
@@ -291,10 +336,11 @@ class SequenceEnv:
                     if in_complete:
                         redundant_flag = 1
                         contrib_redundant = - self.W_REDUNDANCY_PENALTY
-                        contrib_redundant = float(np.clip(contrib_redundant, -self.SHAPING_PER_TERM_CLIP, self.SHAPING_PER_TERM_CLIP))
+                        contrib_redundant = float(
+                            np.clip(contrib_redundant, -self.SHAPING_PER_TERM_CLIP, self.SHAPING_PER_TERM_CLIP))
                         reward += contrib_redundant
 
-        # blunder: if opp immediate-win cells increased
+        # blunder
         blunder_delta = (len(opp_a["imm_win_cells"]) - len(opp_b["imm_win_cells"]))
         contrib_blunder = 0.0
         if blunder_delta > 0:
@@ -302,7 +348,7 @@ class SequenceEnv:
             contrib_blunder = float(np.clip(contrib_blunder, -self.SHAPING_PER_TERM_CLIP, self.SHAPING_PER_TERM_CLIP))
             reward += contrib_blunder
 
-        # discard EV (only on burn)
+        # discard EV (solo en burn)
         contrib_disc_ev = 0.0
         if isinstance(move_record, dict) and move_record.get("type") == "burn":
             public_b = self._public_summary()
@@ -319,7 +365,6 @@ class SequenceEnv:
                     cm = self._CARD_TO_MASK.get(card, None)
                     if cm is None:
                         continue
-                    # Newly unlocked cells are empties of 'card' not already playable
                     inc = int(np.count_nonzero(cm & empties_mask & (~union_mask)))
                     ev_after += (cnt / tot_b) * inc
 
@@ -327,42 +372,41 @@ class SequenceEnv:
             contrib_disc_ev = float(np.clip(contrib_disc_ev, -self.SHAPING_PER_TERM_CLIP, self.SHAPING_PER_TERM_CLIP))
             reward += contrib_disc_ev
 
-        # Early finish bonus (only on win)
+        # Early finish bonus
         contrib_early = 0.0
         if terminated and (acting_team in winners) and self._step_limit > 0 and self.EARLY_FINISH_BONUS != 0.0:
             frac = 1.0 - min(1.0, float(self._steps_elapsed) / float(self._step_limit))
             contrib_early = self.R_WIN * self.EARLY_FINISH_BONUS * frac
             reward += contrib_early
 
-        # Next observation
+        # --- Siguiente obs ---
         self.current_player = self._seat_index()
         next_legal = self._legal_for(self.current_player)
         obs = encode_board_state(
             self._state(), self.current_player, self.config, legal=next_legal, public=self._public_summary()
         )
 
-        # Truncation via episode cap
+        # --- Truncation por step cap ---
         self._steps_elapsed += 1
         self._global_step += 1
         truncated = False
         if not terminated and self._step_limit > 0 and self._steps_elapsed >= self._step_limit:
             truncated = True
 
-        # Breakdown
+        # --- Breakdown detallado (solo en modo completo) ---
         info = {
             "current_player": self.current_player,
             "legal_mask": self._legal_mask(next_legal),
             "move": move_record,
             "winners": winners,
             "reward_breakdown": {
-                "terminal": (self.R_WIN if terminated and acting_team in winners else (self.R_LOSS if terminated else 0.0)),
+                "terminal": (
+                    self.R_WIN if terminated and acting_team in winners else (self.R_LOSS if terminated else 0.0)),
                 "seq_bonus": self.R_SEQ_BONUS * float(seq_delta),
                 "step_penalty": float(self.R_STEP_PENALTY),
-                # potential shaping summaries
                 "phi_sum_raw": float(phi_sum_raw),
                 "phi_sum_clipped": float(phi_sum_clipped),
                 "phi_anneal_scale": float(anneal_scale),
-                # extras
                 "closed4_breaker": float(contrib_closed4),
                 "jack_remove_impact": float(contrib_jackrem),
                 "wild_efficiency": float(contrib_wild),
@@ -373,19 +417,19 @@ class SequenceEnv:
                 "early_finish_bonus": float(contrib_early),
             }
         }
-        # (Optional) expose a few key Φ components for debugging
         info["reward_breakdown"].update({
             "phi_open4_self": float(phi_breakdown.get("open4_self", 0.0)),
-            "phi_open4_opp":  float(phi_breakdown.get("open4_opp", 0.0)),
+            "phi_open4_opp": float(phi_breakdown.get("open4_opp", 0.0)),
             "phi_open3_self": float(phi_breakdown.get("open3_self", 0.0)),
-            "phi_open3_opp":  float(phi_breakdown.get("open3_opp", 0.0)),
+            "phi_open3_opp": float(phi_breakdown.get("open3_opp", 0.0)),
             "phi_imm_win_self": float(phi_breakdown.get("imm_win_self", 0.0)),
-            "phi_imm_win_opp":  float(phi_breakdown.get("imm_win_opp", 0.0)),
-            "phi_fork_self":    float(phi_breakdown.get("fork_self", 0.0)),
-            "phi_fork_opp":     float(phi_breakdown.get("fork_opp", 0.0)),
-            "phi_coverage":     float(phi_breakdown.get("coverage_contam", 0.0)),
-            "phi_mobility":     float(phi_breakdown.get("mobility", 0.0)),
+            "phi_imm_win_opp": float(phi_breakdown.get("imm_win_opp", 0.0)),
+            "phi_fork_self": float(phi_breakdown.get("fork_self", 0.0)),
+            "phi_fork_opp": float(phi_breakdown.get("fork_opp", 0.0)),
+            "phi_coverage": float(phi_breakdown.get("coverage_contam", 0.0)),
+            "phi_mobility": float(phi_breakdown.get("mobility", 0.0)),
         })
+
         return obs, float(reward), terminated, truncated, info
 
     # ---------------- Potential shaping helpers ----------------
