@@ -63,3 +63,4 @@ app/src/lib/firebase.ts
 
 training/source/
 .idea/workspace.xml
+training/runs/smoke/full/run/policy_final.pt
