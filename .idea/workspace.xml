@@ -5,9 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/policy_final.pt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/beam_minimax_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/ensemble_heuristic_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/fork_threat_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/pattern_window_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/threat_aware_minimax_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/beam_minimax_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/ensemble_heuristic_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/fork_threat_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/pattern_window_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/threat_aware_minimax_policy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,34 +59,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python Debug Server.Unnamed.executor": "Debug",
-    "Python tests.Python tests in tests.executor": "Run",
-    "Python.eval.executor": "Debug",
-    "Python.general.executor": "Run",
-    "Python.selfplay.executor": "Debug",
-    "Python.train.executor": "Debug",
-    "Python.trainingfoldergenerator.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "npm.build.executor": "Run",
-    "npm.gen:errors.executor": "Run",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "E:\\sequence_game_board\\sequence_board_game\\app\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python Debug Server.Unnamed.executor&quot;: &quot;Debug&quot;,
+    &quot;Python tests.Python tests in tests.executor&quot;: &quot;Run&quot;,
+    &quot;Python.eval.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.general.executor&quot;: &quot;Run&quot;,
+    &quot;Python.selfplay.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.train.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.trainingfoldergenerator.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.build.executor&quot;: &quot;Run&quot;,
+    &quot;npm.gen:errors.executor&quot;: &quot;Run&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;E:\\sequence_game_board\\sequence_board_game\\app\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="E:\sequence_game_board\sequence_board_game\training\runs\smoke\full\run" />
@@ -87,11 +96,11 @@
       <recent name="E:\sequence_game_board\sequence_board_game\app\src\assets" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\sequence_game_board\sequence_board_game\training\algorithms\advanced" />
       <recent name="E:\sequence_game_board\sequence_board_game\training\algorithms" />
       <recent name="E:\sequence_game_board\sequence_board_game\training\algorithms\ppo_lstm" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\public\assets" />
       <recent name="E:\sequence_game_board\sequence_board_game\app\public" />
-      <recent name="E:\sequence_game_board\sequence_board_game\app" />
     </key>
   </component>
   <component name="RunManager" selected="Python.eval">
@@ -263,6 +272,7 @@
       <workItem from="1756658990992" duration="1175000" />
       <workItem from="1756678785387" duration="7795000" />
       <workItem from="1756742749365" duration="23509000" />
+      <workItem from="1756920198514" duration="1246000" />
     </task>
     <servers />
   </component>
