@@ -4,6 +4,7 @@ Error codes and EngineError exception for rule violations.
 from enum import Enum
 
 class ErrorCode(str, Enum):
+    ERR_INVALID_BURN = "ERR_INVALID_BURN"
     ERR_GENERIC = "ERR_GENERIC"
     ERR_CARD_NOT_IN_HAND = "ERR_CARD_NOT_IN_HAND"
     ERR_TARGET_OCCUPIED = "ERR_TARGET_OCCUPIED"

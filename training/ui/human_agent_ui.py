@@ -4,6 +4,11 @@
 # - Scroll del tablero (rueda: vertical | Shift+rueda: horizontal)
 # - Scroll horizontal de la mano (rueda sobre la mano o arrastre)
 # - Elementos más grandes vía UI_SCALE
+# - Zoom del tablero con barra deslizante + atajos:
+#       * Ctrl + rueda del mouse (equivale al gesto de zoom de Windows/trackpad)
+#       * Botones +/- en el panel derecho
+#       * Botón Reset
+# - Pan del tablero con botón central del mouse (MMB)
 #
 # Carga tablero desde training/assets/boards/standard_10x10.json (BOARD_LAYOUT)
 # Renderiza 10x10 con imágenes opcionales en assets/cards/{rank}{suit}.png
@@ -11,11 +16,13 @@
 #   - Click en carta para seleccionarla
 #   - Click en celda para jugar
 #   - Botón "Burn"/"Pass" o atajos [B]/[P]
+#   - Zoom: Ctrl + rueda, botones +/- o deslizador
+#   - Pan: arrastre con botón central del mouse
 # Devuelve la acción entera según el action space unificado de SequenceEnv
 #
 # Notas:
 # - La UI asume 10x10 por el mapeo r*10+c
-# - UI_SCALE ajusta tamaños; si el tablero excede la ventana, usa el scroll
+# - UI_SCALE ajusta tamaños base; el zoom modifica el tamaño del grid (celdas) dinámicamente
 # - Las “jugadas ganadoras inmediatas” parpadean (anillo verde)
 
 from __future__ import annotations
@@ -34,13 +41,13 @@ assert BOARD_LAYOUT[0][1] == "2S" and BOARD_LAYOUT[0][8] == "9S"
 # Constantes de UI (con escala global)
 # --------------------------------------------------------------------------------------
 
-UI_SCALE = 1.25  # <---- ajusta aquí el tamaño general de la UI
+UI_SCALE = 0.8  # <---- ajusta aquí el tamaño general de la UI
 
 def _S(x: float) -> int:
     return int(round(x * UI_SCALE))
 
 PANEL_W = _S(260)
-CELL_W, CELL_H = _S(56), _S(68)
+CELL_W, CELL_H = _S(56), _S(68)         # tamaños base de celda (se escalan con ZOOM)
 GRID_W, GRID_H = 10 * CELL_W, 10 * CELL_H
 HAND_PANEL_H = _S(140)
 MARG = _S(16)
@@ -58,6 +65,12 @@ TEAM_COLORS = {
     2: (59, 130, 246),  # azul
     3: (234, 179, 8),   # ámbar
 }
+
+# Add these under the existing color constants
+PLAYABLE_BORDER = (250, 204, 21)       # amber-400, bright yellow
+PLAYABLE_BORDER_DARK = (202, 138, 4)   # amber-700, contrast stroke
+
+
 MINE_RING = (255, 255, 255)
 BG = (248, 250, 252)     # slate-50
 BORDER = (203, 213, 225) # slate-300
@@ -70,6 +83,15 @@ SCROLL_TRACK = (241, 245, 249)
 SCROLL_THUMB = (148, 163, 184)
 
 CARD_IMG_CACHE: Dict[str, pygame.Surface] = {}
+
+# ------ Zoom (dinámico sobre el grid) ------
+ZOOM_MIN = 0.6
+ZOOM_MAX = 1.6
+ZOOM_STEP = 0.08
+
+# Guardamos tamaños base del grid/celda (antes de aplicar zoom)
+BASE_CELL_W = CELL_W
+BASE_CELL_H = CELL_H
 
 # --------------------------------------------------------------------------------------
 # Seguridad: tablero 10x10 (SequenceEnv mapea r*10+c)
@@ -119,11 +141,20 @@ class HumanAgentUI:
         self._status_until: float = 0.0
 
         # Geometría base
-        self._board_rect = pygame.Rect(MARG, MARG, GRID_W, GRID_H)  # actual viewport se ajusta en _layout()
+        self._board_rect = pygame.Rect(MARG, MARG, GRID_W, GRID_H)
         self._hand_rects: List[Tuple[pygame.Rect, int]] = []  # (rect, hand_idx)
         self._burn_rect: Optional[pygame.Rect] = None
         self._pass_rect: Optional[pygame.Rect] = None
-        self._legend_rect: Optional[pygame.Rect] = None
+
+        # Controles Zoom (se crean en _draw_panel)
+        self.zoom: float = 1.0
+        self._zoom_track_rect: Optional[pygame.Rect] = None
+        self._zoom_thumb_rect: Optional[pygame.Rect] = None
+        self._zoom_minus_rect: Optional[pygame.Rect] = None
+        self._zoom_plus_rect: Optional[pygame.Rect] = None
+        self._zoom_reset_rect: Optional[pygame.Rect] = None
+        self._zoom_thumb_w: int = _S(24)
+        self._zoom_dragging: bool = False
 
         # Scroll estado
         self._board_view: pygame.Rect = pygame.Rect(0, 0, GRID_W, GRID_H)  # viewport visible dentro del grid
@@ -135,8 +166,42 @@ class HumanAgentUI:
         self._hand_drag_x0 = 0
         self._hand_drag_start = 0
 
-        # Reutilizable
+        # Pan del tablero (MMB)
+        self._board_dragging = False
+        self._board_drag_x0 = 0
+        self._board_drag_y0 = 0
+        self._board_scroll_x0 = 0
+        self._board_scroll_y0 = 0
+
+        # Scrollbars interactivos del tablero
+        self._hscroll_track_rect: Optional[pygame.Rect] = None
+        self._vscroll_track_rect: Optional[pygame.Rect] = None
+        self._hscroll_thumb_rect: Optional[pygame.Rect] = None
+        self._vscroll_thumb_rect: Optional[pygame.Rect] = None
+        self._hscroll_dragging = False
+        self._vscroll_dragging = False
+        self._hscroll_drag_dx = 0
+        self._vscroll_drag_dy = 0
+
         self._boot()
+
+    # ---------- Helpers dinámicos de tamaño (dependen de zoom) ----------
+
+    @property
+    def cell_w(self) -> int:
+        return max(12, int(BASE_CELL_W * self.zoom))
+
+    @property
+    def cell_h(self) -> int:
+        return max(12, int(BASE_CELL_H * self.zoom))
+
+    @property
+    def grid_w(self) -> int:
+        return 10 * self.cell_w
+
+    @property
+    def grid_h(self) -> int:
+        return 10 * self.cell_h
 
     # ---------- API público ----------
 
@@ -160,7 +225,7 @@ class HumanAgentUI:
             return
         pygame.init()
         pygame.display.set_caption("Sequence – HumanAgentUI")
-        # Ajusta ventana objetivo y calcula viewport con scroll si excede
+        # Ventana objetivo inicial basada en tamaños base
         win_w = min(GRID_W + PANEL_W + 3*MARG, WIN_W_TARGET)
         win_h = min(GRID_H + HAND_PANEL_H + 3*MARG, WIN_H_TARGET)
         self._screen = pygame.display.set_mode((win_w, win_h), pygame.RESIZABLE)
@@ -171,40 +236,48 @@ class HumanAgentUI:
         assert self._screen is not None
         sw, sh = self._screen.get_size()
 
-        # Área principal para el tablero
+        # Tablero a la izquierda
         board_w_avail = max(_S(600), sw - PANEL_W - 3*MARG)
         board_h_avail = max(_S(480), sh - HAND_PANEL_H - 3*MARG)
         self._board_rect = pygame.Rect(MARG, MARG, board_w_avail, board_h_avail)
 
-        # Panel lateral
+        # Panel a la DERECHA
         self._panel_rect = pygame.Rect(self._board_rect.right + MARG, MARG, PANEL_W, board_h_avail)
 
         # Mano
         self._hand_area = pygame.Rect(MARG, self._board_rect.bottom + MARG, sw - 2*MARG, HAND_PANEL_H)
 
-        # Limites de scroll del tablero
-        max_scroll_x = max(0, GRID_W - self._board_rect.width)
-        max_scroll_y = max(0, GRID_H - self._board_rect.height)
+        # Limites de scroll del tablero (con dimensiones dinámicas por zoom)
+        max_scroll_x = max(0, self.grid_w - self._board_rect.width)
+        max_scroll_y = max(0, self.grid_h - self._board_rect.height)
         self._board_scroll_x = max(0, min(self._board_scroll_x, max_scroll_x))
         self._board_scroll_y = max(0, min(self._board_scroll_y, max_scroll_y))
         self._board_view = pygame.Rect(self._board_scroll_x, self._board_scroll_y,
                                        self._board_rect.width, self._board_rect.height)
 
     def _handle_scroll_events(self, event: pygame.event.Event):
-        # Mouse wheel para tablero y mano
+        # Mouse wheel: tablero y mano / Ctrl+wheel = ZOOM (gesto Windows/trackpad)
         keys = pygame.key.get_mods()
         shift = keys & pygame.KMOD_SHIFT
+        ctrl = keys & pygame.KMOD_CTRL
         mx, my = pygame.mouse.get_pos()
 
         if event.type == pygame.MOUSEWHEEL:
-            # Sobre tablero
+            # Ctrl + rueda -> Zoom (si el puntero está sobre el tablero, anclamos al cursor)
+            if ctrl:
+                anchor = (mx, my) if self._board_rect.collidepoint(mx, my) else None
+                factor = (1.0 + ZOOM_STEP) if event.y > 0 else (1.0 / (1.0 + ZOOM_STEP))
+                self._set_zoom(self.zoom * factor, anchor_px=anchor)
+                return
+
+            # Scroll sobre tablero
             if self._board_rect.collidepoint(mx, my):
                 if shift:
                     self._board_scroll_x -= event.y * _S(40)
                 else:
                     self._board_scroll_y -= event.y * _S(40)
                 self._clamp_board_scroll()
-            # Sobre mano
+            # Scroll sobre mano
             elif self._hand_area.collidepoint(mx, my):
                 self._hand_scroll_x -= event.y * _S(60)
                 self._clamp_hand_scroll()
@@ -215,16 +288,88 @@ class HumanAgentUI:
                 self._hand_dragging = True
                 self._hand_drag_x0 = mx
                 self._hand_drag_start = self._hand_scroll_x
+
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self._hand_dragging = False
+
         if event.type == pygame.MOUSEMOTION and self._hand_dragging:
             dx = mx - self._hand_drag_x0
             self._hand_scroll_x = self._hand_drag_start - dx
             self._clamp_hand_scroll()
 
+        # --- Scrollbars del tablero (clic y arrastre estilo Windows) ---
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Horizontal
+            if self._hscroll_thumb_rect and self._hscroll_thumb_rect.collidepoint(mx, my):
+                self._hscroll_dragging = True
+                self._hscroll_drag_dx = mx - self._hscroll_thumb_rect.left
+            elif self._hscroll_track_rect and self._hscroll_track_rect.collidepoint(mx, my):
+                thumb_w = self._hscroll_thumb_rect.width if self._hscroll_thumb_rect else _S(40)
+                rel = (mx - self._hscroll_track_rect.left - thumb_w/2) / max(1, (self._hscroll_track_rect.width - thumb_w))
+                rel = max(0.0, min(1.0, rel))
+                max_scroll = max(0, self.grid_w - self._board_rect.width)
+                self._board_scroll_x = int(rel * max_scroll)
+                self._clamp_board_scroll()
+                # Empieza drag inmediatamente (sensación nativa)
+                self._hscroll_dragging = True
+                self._hscroll_drag_dx = thumb_w // 2
+
+            # Vertical
+            if self._vscroll_thumb_rect and self._vscroll_thumb_rect.collidepoint(mx, my):
+                self._vscroll_dragging = True
+                self._vscroll_drag_dy = my - self._vscroll_thumb_rect.top
+            elif self._vscroll_track_rect and self._vscroll_track_rect.collidepoint(mx, my):
+                thumb_h = self._vscroll_thumb_rect.height if self._vscroll_thumb_rect else _S(40)
+                rel = (my - self._vscroll_track_rect.top - thumb_h/2) / max(1, (self._vscroll_track_rect.height - thumb_h))
+                rel = max(0.0, min(1.0, rel))
+                max_scroll = max(0, self.grid_h - self._board_rect.height)
+                self._board_scroll_y = int(rel * max_scroll)
+                self._clamp_board_scroll()
+                self._vscroll_dragging = True
+                self._vscroll_drag_dy = thumb_h // 2
+
+        if event.type == pygame.MOUSEMOTION:
+            if self._hscroll_dragging and self._hscroll_track_rect and self._hscroll_thumb_rect:
+                thumb_w = self._hscroll_thumb_rect.width
+                x = mx - self._hscroll_drag_dx
+                x = max(self._hscroll_track_rect.left, min(x, self._hscroll_track_rect.right - thumb_w))
+                rel = (x - self._hscroll_track_rect.left) / max(1, (self._hscroll_track_rect.width - thumb_w))
+                max_scroll = max(0, self.grid_w - self._board_rect.width)
+                self._board_scroll_x = int(rel * max_scroll)
+                self._clamp_board_scroll()
+            if self._vscroll_dragging and self._vscroll_track_rect and self._vscroll_thumb_rect:
+                thumb_h = self._vscroll_thumb_rect.height
+                y = my - self._vscroll_drag_dy
+                y = max(self._vscroll_track_rect.top, min(y, self._vscroll_track_rect.bottom - thumb_h))
+                rel = (y - self._vscroll_track_rect.top) / max(1, (self._vscroll_track_rect.height - thumb_h))
+                max_scroll = max(0, self.grid_h - self._board_rect.height)
+                self._board_scroll_y = int(rel * max_scroll)
+                self._clamp_board_scroll()
+
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self._hscroll_dragging = False
+            self._vscroll_dragging = False
+
+        # Pan del tablero con botón central (MMB)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
+            if self._board_rect.collidepoint(mx, my):
+                self._board_dragging = True
+                self._board_drag_x0 = mx
+                self._board_drag_y0 = my
+                self._board_scroll_x0 = self._board_scroll_x
+                self._board_scroll_y0 = self._board_scroll_y
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 2:
+            self._board_dragging = False
+        if event.type == pygame.MOUSEMOTION and self._board_dragging:
+            dx = mx - self._board_drag_x0
+            dy = my - self._board_drag_y0
+            self._board_scroll_x = self._board_scroll_x0 - dx
+            self._board_scroll_y = self._board_scroll_y0 - dy
+            self._clamp_board_scroll()
+
     def _clamp_board_scroll(self):
-        max_x = max(0, GRID_W - self._board_rect.width)
-        max_y = max(0, GRID_H - self._board_rect.height)
+        max_x = max(0, self.grid_w - self._board_rect.width)
+        max_y = max(0, self.grid_h - self._board_rect.height)
         self._board_scroll_x = max(0, min(self._board_scroll_x, max_x))
         self._board_scroll_y = max(0, min(self._board_scroll_y, max_y))
 
@@ -251,37 +396,70 @@ class HumanAgentUI:
                     return self._maybe_burn(env, legal_set)
                 if event.key == pygame.K_p:  # pass
                     return self._maybe_pass(env, legal_set)
+                if event.key in (pygame.K_PLUS, pygame.K_EQUALS):  # '+'
+                    self._set_zoom(self.zoom + ZOOM_STEP)
+                if event.key in (pygame.K_MINUS,):
+                    self._set_zoom(self.zoom - ZOOM_STEP)
+                if event.key == pygame.K_0 and (pygame.key.get_mods() & pygame.KMOD_CTRL):
+                    self._set_zoom(1.0)
 
-            # Scroll / drag
+            # Scroll / drag / pan / zoom
             self._handle_scroll_events(event)
 
-            # Clicks
+            # Clicks + controles de zoom + tablero
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
+
+                # Controles de zoom
+                if self._zoom_minus_rect and self._zoom_minus_rect.collidepoint(mx, my):
+                    self._set_zoom(self.zoom - ZOOM_STEP, anchor_px=(mx, my))
+                    return None
+                if self._zoom_plus_rect and self._zoom_plus_rect.collidepoint(mx, my):
+                    self._set_zoom(self.zoom + ZOOM_STEP, anchor_px=(mx, my))
+                    return None
+                if self._zoom_reset_rect and self._zoom_reset_rect.collidepoint(mx, my):
+                    self._set_zoom(1.0)
+                    return None
+                # Click en la pista del deslizador: saltar y empezar drag
+                if self._zoom_track_rect and self._zoom_track_rect.collidepoint(mx, my):
+                    self._update_zoom_from_slider(mx)
+                    self._zoom_dragging = True
+                    return None
+                if self._zoom_thumb_rect and self._zoom_thumb_rect.collidepoint(mx, my):
+                    self._zoom_dragging = True
+                    return None
+
                 # Mano
                 for rect, hidx in self._hand_rects:
                     if rect.collidepoint(mx, my):
                         self._selected_hand_idx = hidx
                         self._flash_status(self._jack_badge_text(env, hidx))
                         return None
-                # Botones
+                # Botones principales
                 if self._burn_rect and self._burn_rect.collidepoint(mx, my):
                     return self._maybe_burn(env, legal_set)
                 if self._pass_rect and self._pass_rect.collidepoint(mx, my):
                     return self._maybe_pass(env, legal_set)
                 # Tablero
                 if self._board_rect.collidepoint(mx, my):
-                    # Coordenadas dentro del grid con scroll aplicado
+                    # Coordenadas dentro del grid con scroll y zoom aplicado
                     gx = mx - self._board_rect.left + self._board_scroll_x
                     gy = my - self._board_rect.top + self._board_scroll_y
-                    c = int(gx // CELL_W)
-                    r = int(gy // CELL_H)
+                    c = int(gx // self.cell_w)
+                    r = int(gy // self.cell_h)
                     if 0 <= r < 10 and 0 <= c < 10:
                         action = int(r * 10 + c)
                         if action in legal_set:
                             return action
                         else:
                             self._flash_status("No es legal en esa casilla.")
+
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                self._zoom_dragging = False
+
+            if event.type == pygame.MOUSEMOTION and self._zoom_dragging:
+                mx, _ = event.pos
+                self._update_zoom_from_slider(mx)
 
         # Dibujo
         self._layout()
@@ -309,16 +487,18 @@ class HumanAgentUI:
 
         st = env.game_engine.state
 
-        # Dibuja solo celdas visibles en viewport (con scroll)
+        # Offset para pintar celdas actuales considerando scroll (con dimensiones dinámicas)
         x0 = self._board_rect.left - self._board_scroll_x
         y0 = self._board_rect.top - self._board_scroll_y
 
         now = time.time()
         pulse = (1 + 0.25 * np.sin(now * 5.0))  # factor 1..1.25
 
+        cw, ch = self.cell_w, self.cell_h
+
         for r in range(10):
             for c in range(10):
-                cell_rect = pygame.Rect(x0 + c * CELL_W, y0 + r * CELL_H, CELL_W, CELL_H)
+                cell_rect = pygame.Rect(x0 + c * cw, y0 + r * ch, cw, ch)
                 if not cell_rect.colliderect(self._board_rect):
                     continue
 
@@ -337,8 +517,8 @@ class HumanAgentUI:
                     if img is not None:
                         img_rect = img.get_rect()
                         img_rect.center = cell_rect.center
-                        scale = min((CELL_W - _S(6)) / img_rect.w, (CELL_H - _S(6)) / img_rect.h)
-                        if scale < 1.0:
+                        scale = min((cw - _S(6)) / img_rect.w, (ch - _S(6)) / img_rect.h)
+                        if scale < 1.0 or scale > 1.0:
                             img = pygame.transform.smoothscale(img, (int(img_rect.w * scale), int(img_rect.h * scale)))
                             img_rect = img.get_rect(center=cell_rect.center)
                         s.blit(img, img_rect)
@@ -348,27 +528,37 @@ class HumanAgentUI:
                     self._blit_centered_text(s, "★", _S(20), cell_rect, (234, 179, 8), bold=True)
 
                 # Borde de celda si es legal
+                # Borde de celda si es legal (amarillo y grueso)
                 a = r * 10 + c
                 if a in legal_set:
-                    pygame.draw.rect(s, (199, 210, 254), cell_rect, width=_S(3), border_radius=_S(6))  # indigo-200
+                    border_w = max(3, cw // 8)  # más grueso que antes
+                    pygame.draw.rect(s, PLAYABLE_BORDER, cell_rect, width=border_w, border_radius=_S(8))
+                    # Trazo interior más oscuro para contraste
+                    inner_rect = cell_rect.inflate(-max(2, border_w // 2), -max(2, border_w // 2))
+                    pygame.draw.rect(s, PLAYABLE_BORDER_DARK, inner_rect, width=max(2, border_w // 4),
+                                     border_radius=_S(6))
 
-                # Chip
+                # Chip (centrado y grande)
                 if chip is not None:
                     color = TEAM_COLORS.get(int(chip), (107, 114, 128))
-                    pygame.draw.circle(s, color, (cell_rect.right - _S(12), cell_rect.top + _S(12)), _S(10))
-                    pygame.draw.circle(s, MINE_RING, (cell_rect.right - _S(12), cell_rect.top + _S(12)), _S(10), _S(2))
+                    center = cell_rect.center
+                    rad = max(_S(10), int(min(cw, ch) * 0.32))
+                    # cuerpo
+                    pygame.draw.circle(s, color, center, rad)
+                    # anillo blanco nítido
+                    pygame.draw.circle(s, MINE_RING, center, rad, max(2, rad // 4))
 
                 # Overlays de secuencia (más gruesos y coloreados por equipo)
                 axes = seq_overlays.get((r, c), [])
                 for axis, team in axes:
                     col = TEAM_COLORS.get(team, INDIGO)
-                    self._draw_sequence_band(s, cell_rect, axis, col, alpha=110, thickness=_S(8))
+                    self._draw_sequence_band(s, cell_rect, axis, col, alpha=110, thickness=max(4, cw // 7))
 
                 # Win inmediato para mi equipo (anillo pulsante + texto)
                 if (r, c) in imm_cells:
-                    rad = int(_S(9) * pulse)
-                    pygame.draw.circle(s, GREEN, (cell_rect.centerx, cell_rect.centery), rad, _S(3))
-                    self._blit_centered_text(s, "WIN", _S(10), cell_rect.move(0, _S(16)), GREEN, bold=True)
+                    rad = int(max(6, cw // 6) * pulse)
+                    pygame.draw.circle(s, GREEN, (cell_rect.centerx, cell_rect.centery), rad, max(2, cw // 30))
+                    self._blit_centered_text(s, "WIN", max(10, cw // 8), cell_rect.move(0, _S(16)), GREEN, bold=True)
 
                 # Bordes finos de celda
                 pygame.draw.rect(s, BORDER, cell_rect, width=1)
@@ -381,11 +571,10 @@ class HumanAgentUI:
         # Dibujar una banda semitransparente gruesa por eje
         band = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
         col = (*color, alpha)
-        cx, cy = rect.centerx, rect.centery
         if axis == 'H':
-            pygame.draw.rect(band, col, (GAP//2, rect.height//2 - thickness//2, rect.width - GAP, thickness), border_radius=thickness//2)
+            pygame.draw.rect(band, col, (GAP//2, rect.height//2 - thickness//2, rect.width - GAP, thickness), border_radius=max(2, thickness//2))
         elif axis == 'V':
-            pygame.draw.rect(band, col, (rect.width//2 - thickness//2, GAP//2, thickness, rect.height - GAP), border_radius=thickness//2)
+            pygame.draw.rect(band, col, (rect.width//2 - thickness//2, GAP//2, thickness, rect.height - GAP), border_radius=max(2, thickness//2))
         elif axis == 'D1':  # \
             pygame.draw.line(band, col, (0, rect.height), (rect.width, 0), thickness)
         elif axis == 'D2':  # /
@@ -394,32 +583,41 @@ class HumanAgentUI:
 
     def _draw_board_scrollbars(self, s: pygame.Surface):
         # Muestra barras si el grid excede el viewport
-        need_h = GRID_W > self._board_rect.width
-        need_v = GRID_H > self._board_rect.height
+        need_h = self.grid_w > self._board_rect.width
+        need_v = self.grid_h > self._board_rect.height
+        self._hscroll_track_rect = None
+        self._vscroll_track_rect = None
+        self._hscroll_thumb_rect = None
+        self._vscroll_thumb_rect = None
         if not (need_h or need_v):
             return
 
-        # Track
+        # Track horizontal
         if need_h:
             track = pygame.Rect(self._board_rect.left, self._board_rect.bottom - _S(10),
                                 self._board_rect.width, _S(8))
             pygame.draw.rect(s, SCROLL_TRACK, track, border_radius=_S(4))
             # Thumb
-            thumb_w = max(_S(40), int(self._board_rect.width * self._board_rect.width / GRID_W))
-            max_scroll = GRID_W - self._board_rect.width
+            thumb_w = max(_S(40), int(self._board_rect.width * self._board_rect.width / self.grid_w))
+            max_scroll = self.grid_w - self._board_rect.width
             x = 0 if max_scroll == 0 else int(self._board_scroll_x * (self._board_rect.width - thumb_w) / max_scroll)
             thumb = pygame.Rect(track.left + x, track.top, thumb_w, track.height)
             pygame.draw.rect(s, SCROLL_THUMB, thumb, border_radius=_S(4))
+            self._hscroll_track_rect = track
+            self._hscroll_thumb_rect = thumb
 
+        # Track vertical
         if need_v:
             track = pygame.Rect(self._board_rect.right - _S(10), self._board_rect.top,
                                 _S(8), self._board_rect.height)
             pygame.draw.rect(s, SCROLL_TRACK, track, border_radius=_S(4))
-            thumb_h = max(_S(40), int(self._board_rect.height * self._board_rect.height / GRID_H))
-            max_scroll = GRID_H - self._board_rect.height
+            thumb_h = max(_S(40), int(self._board_rect.height * self._board_rect.height / self.grid_h))
+            max_scroll = self.grid_h - self._board_rect.height
             y = 0 if max_scroll == 0 else int(self._board_scroll_y * (self._board_rect.height - thumb_h) / max_scroll)
             thumb = pygame.Rect(track.left, track.top + y, track.width, thumb_h)
             pygame.draw.rect(s, SCROLL_THUMB, thumb, border_radius=_S(4))
+            self._vscroll_track_rect = track
+            self._vscroll_thumb_rect = thumb
 
     def _draw_panel(self, env, legal_set: Set[int], my_team: int):
         s = self._screen; assert s is not None
@@ -461,10 +659,12 @@ class HumanAgentUI:
         # Muestras
         lx = legend.left + _S(12)
         ly = legend.top + _S(34)
-        # Legal
+        # Legal (coincide con el borde amarillo grueso del tablero)
         legal_box = pygame.Rect(lx, ly, _S(28), _S(18))
-        pygame.draw.rect(s, (255, 255, 255), legal_box)
-        pygame.draw.rect(s, (199, 210, 254), legal_box, _S(3), border_radius=_S(4))
+        pygame.draw.rect(s, (255, 255, 255), legal_box, border_radius=_S(4))
+        pygame.draw.rect(s, PLAYABLE_BORDER, legal_box, _S(4), border_radius=_S(4))
+        inner_demo = legal_box.inflate(-_S(6), -_S(6))
+        pygame.draw.rect(s, PLAYABLE_BORDER_DARK, inner_demo, _S(2), border_radius=_S(3))
         self._blit_text(s, "Jugada legal", _S(13), (legal_box.right + _S(8), ly))
         ly += _S(24)
         # Secuencia (banda)
@@ -480,7 +680,7 @@ class HumanAgentUI:
         pygame.draw.circle(s, GREEN, win_box.center, _S(8), _S(3))
         self._blit_text(s, "Ganas si juegas aquí", _S(13), (win_box.right + _S(8), ly))
 
-        # Ganadores
+        # Ganadores (si aplica)
         winners: List[int] = []
         try:
             winners = list(env.game_engine.winner_teams())  # type: ignore
@@ -491,17 +691,64 @@ class HumanAgentUI:
                 winners = []
         if winners:
             self._blit_text(s, f"Ganador: Equipo {int(winners[0]) + 1}", _S(20),
-                            (panel.left + _S(12), panel.bottom - _S(40)),
+                            (panel.left + _S(12), panel.bottom - _S(140)),
                             color=(22, 163, 74), bold=True)
 
+        # Controles de ZOOM
+        zoom_top = panel.bottom - _S(140)
+        self._draw_zoom_controls(s, pygame.Rect(panel.left + _S(12), zoom_top, panel.width - _S(24), _S(56)))
+
         # Botones
-        btn_y = panel.bottom - _S(100)
+        btn_y = panel.bottom - _S(88)
         self._burn_rect = self._button(s, "Burn Card [B]", (panel.left + _S(12), btn_y),
                                        enabled=self._can_burn(env, legal_set))
         btn_y += _S(48)
         include_pass = bool(getattr(env, "_include_pass", False))
         self._pass_rect = self._button(s, "Pass [P]", (panel.left + _S(12), btn_y),
                                        enabled=self._can_pass(env, legal_set) if include_pass else False)
+
+    def _draw_zoom_controls(self, s: pygame.Surface, area: pygame.Rect):
+        """Barra de zoom con botones +/- y deslizador."""
+        # Etiqueta + valor
+        self._blit_text(s, "Zoom", _S(16), (area.left, area.top), bold=True)
+        pct = int(round(self.zoom * 100))
+        self._blit_text(s, f"{pct}%", _S(14), (area.right - _S(56), area.top + _S(2)), color=SUBTLE)
+
+        # Botones +/- (cuadrados)
+        btn_size = _S(28)
+        minus = pygame.Rect(area.left, area.bottom - btn_size, btn_size, btn_size)
+        plus = pygame.Rect(area.left + btn_size + _S(8), area.bottom - btn_size, btn_size, btn_size)
+        pygame.draw.rect(s, (51, 65, 85), minus, border_radius=_S(6))
+        pygame.draw.rect(s, (51, 65, 85), plus, border_radius=_S(6))
+        self._blit_centered_text(s, "–", _S(18), minus, (255, 255, 255), bold=True)
+        self._blit_centered_text(s, "+", _S(18), plus, (255, 255, 255), bold=True)
+        self._zoom_minus_rect, self._zoom_plus_rect = minus, plus
+
+        # Botón Reset
+        reset_w = _S(64)
+        reset = pygame.Rect(area.right - reset_w, area.bottom - btn_size, reset_w, btn_size)
+        pygame.draw.rect(s, (71, 85, 105), reset, border_radius=_S(6))
+        self._blit_centered_text(s, "Reset", _S(14), reset, (255, 255, 255), bold=True)
+        self._zoom_reset_rect = reset
+
+        # Track del deslizador
+        track_left = plus.right + _S(10)
+        track_right = reset.left - _S(10)
+        track = pygame.Rect(track_left,
+                            area.bottom - btn_size//2 - _S(4),
+                            max(_S(60), track_right - track_left),
+                            _S(8))
+        pygame.draw.rect(s, SCROLL_TRACK, track, border_radius=_S(4))
+
+        # Thumb según valor
+        t = (self.zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)
+        t = max(0.0, min(1.0, t))
+        thumb_w = self._zoom_thumb_w
+        thumb_x = track.left + int(t * (track.width - thumb_w))
+        thumb = pygame.Rect(thumb_x, track.top - _S(4), thumb_w, track.height + _S(8))
+        pygame.draw.rect(s, SCROLL_THUMB, thumb, border_radius=_S(6))
+        self._zoom_track_rect = track
+        self._zoom_thumb_rect = thumb
 
     def _draw_hand(self, env):
         s = self._screen; assert s is not None
@@ -515,9 +762,10 @@ class HumanAgentUI:
         available_w = area.width - 2*MARG
         max_cards = max(1, len(hand))
 
-        # Calcula tamaño de carta base (más grande) y ancho total
-        card_w = min(int(CELL_W * 0.95), max(_S(50), int((available_w - (max_cards - 1) * gap) / max_cards)))
-        card_h = min(int(HAND_PANEL_H - _S(56)), int(CELL_H * 0.95))
+        # Tamaño de carta base relacionado a la celda y al panel disponible
+        cw, ch = self.cell_w, self.cell_h
+        card_w = min(int(cw * 0.95), max(_S(50), int((available_w - (max_cards - 1) * gap) / max_cards)))
+        card_h = min(int(HAND_PANEL_H - _S(56)), int(ch * 0.95))
         total_w = max_cards * card_w + (max_cards - 1) * gap
         self._hand_total_w = total_w
         self._clamp_hand_scroll()
@@ -691,6 +939,42 @@ class HumanAgentUI:
         except Exception:
             pass
         return axes
+
+    # ---------- Zoom helpers ----------
+
+    def _set_zoom(self, new_zoom: float, anchor_px: Optional[Tuple[int, int]] = None):
+        """Ajusta el zoom del grid con anclaje opcional en coordenada pantalla (sobre el tablero)."""
+        old_zoom = self.zoom
+        z = max(ZOOM_MIN, min(ZOOM_MAX, float(new_zoom)))
+        if abs(z - old_zoom) < 1e-4:
+            return
+        old_cw, old_ch = self.cell_w, self.cell_h  # con old zoom
+        self.zoom = z
+        # Mantener el punto bajo el cursor estable al cambiar zoom (si el cursor está sobre el tablero)
+        if anchor_px and self._board_rect.collidepoint(*anchor_px):
+            mx, my = anchor_px
+            # Coordenadas del punto dentro del grid (antes)
+            gx_old = self._board_scroll_x + (mx - self._board_rect.left)
+            gy_old = self._board_scroll_y + (my - self._board_rect.top)
+            cell_x = gx_old / max(1, old_cw)
+            cell_y = gy_old / max(1, old_ch)
+            # Nuevas coordenadas objetivo en pixeles
+            new_cw, new_ch = self.cell_w, self.cell_h
+            gx_new = cell_x * new_cw
+            gy_new = cell_y * new_ch
+            self._board_scroll_x = int(gx_new - (mx - self._board_rect.left))
+            self._board_scroll_y = int(gy_new - (my - self._board_rect.top))
+        # Re-clamp para respetar nuevos límites
+        self._clamp_board_scroll()
+
+    def _update_zoom_from_slider(self, mouse_x: int):
+        if not self._zoom_track_rect:
+            return
+        track = self._zoom_track_rect
+        thumb_w = self._zoom_thumb_w
+        t = (mouse_x - (track.left + thumb_w / 2)) / max(1, (track.width - thumb_w))
+        t = max(0.0, min(1.0, t))
+        self._set_zoom(ZOOM_MIN + t * (ZOOM_MAX - ZOOM_MIN))
 
     # ---------- Assets & widgets ----------
 

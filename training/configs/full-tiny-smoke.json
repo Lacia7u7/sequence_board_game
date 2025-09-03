@@ -25,11 +25,7 @@
       "extendable_len3_self": true,
       "jack_remove_targets": true,
       "p_cell_playable_next": true,
-      "p_cell_playable_k": [
-        2,
-        3,
-        4
-      ],
+      "p_cell_playable_k": [2, 3, 4],
       "p_opponent_targets_next": true,
       "empty_cells": true,
       "jack_vuln_self": true,
@@ -69,6 +65,20 @@
       "snapshots": 0.05,
       "heuristics": 0.95
     },
+    "pool_probabilities_description": {
+      "heuristics": {
+        "RandomAgent": 0.04,
+        "BlockingAgent": 0.08,
+        "GreedySequenceAgent": 0.09,
+        "BonusProximityAgent": 0.09,
+        "CenterHeuristicAgent": 0.14,
+        "PatternWindowAgent": 0.16,
+        "EnsembleHeuristicAgent": 0.14,
+        "ForkThreatAgent": 0.10,
+        "BeamMinimaxAgent": 0.08,
+        "ThreatAwareMinimaxAgent": 0.08
+      }
+    },
     "resume_from_latest_run": true,
     "resume_load_strict": false
   },
@@ -76,12 +86,7 @@
     "arch": "cnn_lstm",
     "activation": "gelu",
     "norm": "layernorm",
-    "conv_channels": [
-      32,
-      64,
-      128,
-      128
-    ],
+    "conv_channels": [32, 64, 128, 128],
     "lstm_hidden": 512,
     "lstm_layers": 2,
     "value_tanh_bound": 5.0,
@@ -91,14 +96,7 @@
       "blocks": 8,
       "use_se": true,
       "preact": true,
-      "dilation_schedule": [
-        1,
-        1,
-        2,
-        1,
-        1,
-        2
-      ]
+      "dilation_schedule": [1, 1, 2, 1, 1, 2]
     },
     "transformer": {
       "enabled": true,
@@ -116,16 +114,11 @@
     "policy_head": {
       "type": "spatial+mlp",
       "conv_1x1_channels": 64,
-      "mlp": [
-        512
-      ],
+      "mlp": [512],
       "mask_invalid_actions": true
     },
     "value_head": {
-      "mlp": [
-        256,
-        128
-      ],
+      "mlp": [256, 128],
       "tanh_bound": 5.0
     }
   },
@@ -155,7 +148,23 @@
         "policy_path": "E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run/policy_final.pt",
         "deterministic": true
       }
-    }
+    },
+    "winmeter_window": 256,
+    "winmeter_ema_alpha": 0.1,
+    "winmeter_min_games_rank": 5
+  },
+  "curriculum": {
+    "enabled": true,
+    "adjust_every": 5,
+    "target_recent": 0.6,
+    "hard_threshold": 0.2,
+    "easy_threshold": 0.85,
+    "min_games_for_class": 10,
+    "learning_rate": 0.5,
+    "tau": 0.15,
+    "weight_floor": 0.01,
+    "weight_cap": 0.5,
+    "log_weights": true
   },
   "rewards": {
     "illegal": -0.01,

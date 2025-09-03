@@ -38,6 +38,7 @@ class Deck:
                 return None
         return self.cards.pop()
 
-    def discard(self, card: str) -> None:
+    def discard(self, card: str, burned: bool = False) -> None:
         self.discard_pile.append(card)
-        self.burned_cards.append(card)
+        if burned:
+            self.burned_cards.append(card)

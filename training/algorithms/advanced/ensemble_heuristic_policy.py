@@ -1,4 +1,3 @@
-# training/algorithms/advanced/ensemble_heuristic_policy.py
 from __future__ import annotations
 from typing import Optional
 import numpy as np
@@ -19,13 +18,23 @@ class EnsembleHeuristicPolicy(BasePolicy):
     @staticmethod
     def _manhattan(r, c): return abs(r-4.5) + abs(c-4.5)
 
+    @staticmethod
+    def _cell_to_int(v) -> int:
+        # Environment may use None for empty; also allow numpy ints
+        if v is None:
+            return -1
+        if isinstance(v, (int, np.integer)):
+            return int(v)
+        # Fallback: treat anything else as empty
+        return -1
+
     def _line_len(self, board, team, r, c, dr, dc):
         cnt = 1
         rr, cc = r-dr, c-dc
-        while 0 <= rr < 10 and 0 <= cc < 10 and (BOARD_LAYOUT[rr][cc] == "BONUS" or board[rr][cc] == team):
+        while 0 <= rr < 10 and 0 <= cc < 10 and (BOARD_LAYOUT[rr][cc] == "BONUS" or self._cell_to_int(board[rr][cc]) == team):
             cnt += 1; rr -= dr; cc -= dc
         rr, cc = r+dr, c+dc
-        while 0 <= rr < 10 and 0 <= cc < 10 and (BOARD_LAYOUT[rr][cc] == "BONUS" or board[rr][cc] == team):
+        while 0 <= rr < 10 and 0 <= cc < 10 and (BOARD_LAYOUT[rr][cc] == "BONUS" or self._cell_to_int(board[rr][cc]) == team):
             cnt += 1; rr += dr; cc += dc
         return cnt
 
@@ -38,36 +47,59 @@ class EnsembleHeuristicPolicy(BasePolicy):
     def _pattern_gain(self, board, team, r, c, opp):
         # very light-weight pattern delta
         W = [0.0, 2.0, 8.0, 24.0, 160.0, 1e6]
+
         def eval_board(b, who):
-            # scan 5-windows, BONUS acts as wildcard
-            tmp = np.full((10,10), -1, dtype=int)
-            for i in range(10):
-                for j in range(10):
-                    tmp[i][j] = -2 if BOARD_LAYOUT[i][j]=="BONUS" else b[i][j]
-            def score_line(vals, who):
-                t = sum(1 for x in vals if x == who or x == -2)
-                o = sum(1 for x in vals if x == (1-who))
-                if t>0 and o>0: return 0.0
-                if o>0: return -W[o]
+            # Accept list-of-lists or ndarray
+            arr = np.asarray(b, dtype=object)
+            H, Wd = arr.shape
+
+            # tmp holds ints: team ids, -1 empty, -2 wildcard (BONUS)
+            tmp = np.full((H, Wd), -1, dtype=int)
+            for i in range(H):
+                for j in range(Wd):
+                    if BOARD_LAYOUT[i][j] == "BONUS":
+                        tmp[i, j] = -2  # wildcard
+                    else:
+                        tmp[i, j] = self._cell_to_int(arr[i, j])
+
+            def score_line(vals, who_):
+                t = sum(1 for x in vals if x == who_ or x == -2)
+                o = sum(1 for x in vals if x == (1 - who_))
+                if t > 0 and o > 0: return 0.0
+                if o > 0: return -W[o]
                 return W[t]
+
             s = 0.0
-            for i in range(10):
-                for j in range(6):
-                    s += score_line([tmp[i][j+k] for k in range(5)], who)
-            for i in range(6):
-                for j in range(10):
-                    s += score_line([tmp[i+k][j] for k in range(5)], who)
-            for i in range(6):
-                for j in range(6):
-                    s += score_line([tmp[i+k][j+k] for k in range(5)], who)
-            for i in range(6):
-                for j in range(4,10):
-                    s += score_line([tmp[i+k][j-k] for k in range(5)], who)
+            # horiz
+            for i in range(H):
+                for j in range(Wd - 4):
+                    s += score_line([tmp[i, j + k] for k in range(5)], who)
+            # vert
+            for i in range(H - 4):
+                for j in range(Wd):
+                    s += score_line([tmp[i + k, j] for k in range(5)], who)
+            # diag down-right
+            for i in range(H - 4):
+                for j in range(Wd - 4):
+                    s += score_line([tmp[i + k, j + k] for k in range(5)], who)
+            # diag up-right
+            for i in range(H - 4):
+                for j in range(4, Wd):
+                    s += score_line([tmp[i + k, j - k] for k in range(5)], who)
             return s
+
         b0 = eval_board(board, team)
-        b = board.copy()
-        if b[r][c] == opp: b[r][c] = -1
-        else: b[r][c] = team
+
+        # create a real independent copy (works for lists or arrays)
+        b = np.asarray(board, dtype=object).copy()
+
+        # Robust removal/placement even if board uses None for empty
+        bc = self._cell_to_int(b[r, c])
+        if bc == opp:
+            b[r, c] = -1
+        else:
+            b[r, c] = team
+
         return eval_board(b, team) - b0
 
     def _fork_pressure(self, board, team, r, c, opp):
@@ -82,7 +114,8 @@ class EnsembleHeuristicPolicy(BasePolicy):
     def select_action(self, legal_mask: Optional[np.ndarray], ctx: Optional[PolicyCtx] = None) -> int:
         legal = list(np.flatnonzero(legal_mask > 0.5)) if legal_mask is not None else list(range(self.env.action_space.n))
         if not legal: return 0
-        board = self.env.game_engine.state.board
+        # normalize to numpy array (object dtype so None is preserved)
+        board = np.asarray(self.env.game_engine.state.board, dtype=object)
         teams = self.env.gconf.teams
         me = self.env.current_player % teams
         opp = (me + 1) % teams if teams > 1 else me

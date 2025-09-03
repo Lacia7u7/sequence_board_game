@@ -1,6 +1,5 @@
 import random
-from os import name
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -16,47 +15,74 @@ except Exception:
 
 class OpponentPool:
     """
-    Manages opponents for multi-seat turn-based self-play and can 'advance' an env
-    by letting non-learner seats act until it's the learner's turn again.
+    Opponent pool that can sample from three buckets: {"current", "snapshots", "heuristics"}.
 
-    Key features:
-      - Static factory create
-        where `policies[0]` is the learner; other seats are sampled from heuristics/snapshots.
-      - Per-env seat assignment (re-sampled on episode resets).
-      - Per-env/per-seat RNN state for recurrent opponents.
-      - `skipTo(learner_policy, env, env_idx)` steps the env forward with opponents'
-        actions until it's the learner's turn (or the episode ends/reset).
+    Configuration
+    -------------
+    probabilities: Dict[str, float]
+        Top-level bucket mixing weights (must sum to 1 after normalization).
+        Example: {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3}
+
+    probabilities_description: Dict[str, Any]
+        Optional fine-grained weights that may override defaults:
+          - "buckets": {"current": x, "snapshots": y, "heuristics": z}  # overrides top-level split
+          - "heuristics": {"AgentClassA": 0.5, "AgentClassB": 0.5, ...}
+          - "snapshots": {"SnapshotNameA": 0.7, "SnapshotNameB": 0.3, ...}
+        Unspecified classes/names inside a bucket share remaining mass uniformly.
+
+    Notes
+    -----
+    - A "snapshot" agent is expected to be a frozen policy wrapper (e.g., PPOFrozenAgent);
+      we derive its sampling name from `agent.name` if present, else its class name.
+    - A "heuristic" agent can be any heuristic implementing `select_action(...)`.
     """
 
-    def __init__(self, probabilities: Optional[Dict[str, float]] = None):
+    def __init__(
+        self,
+        probabilities: Optional[Dict[str, float]] = None,
+        probabilities_description: Optional[Dict[str, Dict[str, float]]] = None,
+    ):
         self.probabilities = probabilities or {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3}
+        # Fine-grained weights per bucket
+        self.probabilities_description = probabilities_description or {
+            "heuristics": {},
+            # "snapshots": {},
+            # "buckets": {},
+        }
 
-        # Candidate sources
         self.current_policy: Optional[Any] = None
         self.snapshots: List[Any] = []
         self.heuristics: List[Any] = []
-
-        # Per-env seat assignment: env_idx -> [agent_for_seat0, agent_for_seat1, ...]
         self._env_seats: Dict[int, List[Any]] = {}
 
-    # ---------- Factory & registration ----------
+    # ---------- Static factory used by train.py ----------
 
     @staticmethod
-    def create(envs: List[SequenceEnv], policy: PPORecurrentPolicy, pool_probs: Dict[str, float], heuristics, snapshots):
-        # Create pool and seat all envs
-        pool = OpponentPool(probabilities=pool_probs)
+    def create(
+        envs: List[SequenceEnv],
+        policy: "PPORecurrentPolicy",
+        pool_probs: Dict[str, float],
+        heuristics,
+        snapshots,
+        pool_probs_desc: Optional[Dict[str, Dict[str, float]]] = None,
+    ):
+        pool = OpponentPool(probabilities=pool_probs, probabilities_description=pool_probs_desc)
         pool.current_policy = policy
-        for h_agent in heuristics: pool.add_heuristic(h_agent)
-        for s_agent in snapshots:  pool.add_snapshot(s_agent)
+        for h_agent in heuristics:
+            pool.add_heuristic(h_agent)
+        for s_agent in snapshots:
+            pool.add_snapshot(s_agent)
         for i, e in enumerate(envs):
             pool.ensure_env(i, e)
-        # Align *all envs* to the learner's turn before starting the rollout
+
         aligned_obs, aligned_info = [], []
         for i, e in enumerate(envs):
             obs_i, info_i, _ = pool.skipTo(policy, e, i)
             aligned_obs.append(obs_i)
             aligned_info.append(info_i)
         return aligned_info, aligned_obs, pool
+
+    # ---------- Manage pools ----------
 
     def add_snapshot(self, agent: Any, max_snapshots: int = 15) -> int:
         self.snapshots.append(agent)
@@ -81,22 +107,21 @@ class OpponentPool:
         self._assign_seats_for_env(env_idx, env)
 
     def _assign_seats_for_env(self, env_idx: int, env) -> None:
-        """Seat 0 = learner; other seats sampled from snapshots/heuristics."""
         total_players = int(env.gconf.teams) * int(env.gconf.players_per_team)
-        assert total_players >= 1, "Invalid player count from env config"
+        assert total_players >= 1
         seats: List[Any] = []
         for seat in range(total_players):
             if seat == 0:
                 a = self.current_policy
             else:
-                a = self._sample_opponent()
-                a = a.make_new_agent(env)
+                base = self._sample_opponent()
+                factory = getattr(base, "make_new_agent", None)
+                a = factory(env) if callable(factory) else base  # use as-is if no factory
                 if a is None:
-                    raise Exception("Unable to sample opponent by calling make_new_agent on: ", a)
+                    raise Exception("Unable to create opponent from:", base)
             seats.append(a)
 
         self._env_seats[env_idx] = seats
-
         for s, agent in enumerate(seats):
             if agent is self.current_policy:
                 continue
@@ -109,48 +134,157 @@ class OpponentPool:
                     except Exception:
                         print("Failed to reset agent:", agent)
 
+    # ---------- Weighted sampling ----------
 
+    def _agent_name(self, agent: Any) -> str:
+        return getattr(agent, "name", type(agent).__name__)
+
+    def _parse_dict_or_pairs(self, raw) -> Dict[str, float]:
+        """Supports dict or list-of-dicts / (k, v) pairs."""
+        if isinstance(raw, dict):
+            return {str(k): float(v) for k, v in raw.items()}
+        if isinstance(raw, list):
+            acc: Dict[str, float] = {}
+            for item in raw:
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        acc[str(k)] = float(v)
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    acc[str(item[0])] = float(item[1])
+            return acc
+        return {}
+
+    # ---- Top-level bucket choice (supports override via probabilities_description["buckets"]) ----
+    def _bucket_choice(self) -> str:
+        p = dict(self.probabilities or {})
+        bdesc = (self.probabilities_description or {}).get("buckets", None)
+        if bdesc:
+            try:
+                bdesc = self._parse_dict_or_pairs(bdesc)
+                p.update({k: float(v) for k, v in bdesc.items()})
+            except Exception:
+                pass
+        # Normalize; if degenerate, fall back to defaults
+        s = sum(max(0.0, float(x)) for x in p.values())
+        if s > 0:
+            p = {k: max(0.0, float(v)) / s for k, v in p.items()}
+        else:
+            p = {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3}
+        return random.choices(list(p.keys()), list(p.values()))[0]
+
+    # ---- Inside “heuristics” bucket ----
+    def _parse_heuristics_desc(self) -> Dict[str, float]:
+        raw = (self.probabilities_description or {}).get("heuristics", {})
+        return self._parse_dict_or_pairs(raw)
+
+    def _heuristics_weights(self) -> List[float]:
+        """Return weights aligned with self.heuristics, distributing leftover uniformly."""
+        if not self.heuristics:
+            return []
+        names = [self._agent_name(a) for a in self.heuristics]
+        specified = self._parse_heuristics_desc()
+
+        sum_spec = sum(max(0.0, float(specified.get(n, 0.0))) for n in names)
+        remaining = max(0.0, 1.0 - sum_spec)
+
+        unspecified_indices = [i for i, n in enumerate(names) if specified.get(n) is None]
+        per_unspecified = (remaining / len(unspecified_indices)) if unspecified_indices else 0.0
+
+        weights: List[float] = []
+        for i, n in enumerate(names):
+            w = specified.get(n, None)
+            if w is None:
+                w = per_unspecified
+            weights.append(max(0.0, float(w)))
+        return weights
+
+    def _weighted_choice_heuristic(self) -> Optional[Any]:
+        if not self.heuristics:
+            return None
+        weights = self._heuristics_weights()
+        if sum(weights) <= 0.0:
+            weights = None  # uniform
+        return random.choices(self.heuristics, weights=weights, k=1)[0]
+
+    # ---- Inside “snapshots” bucket ----
+    def _snapshots_weights(self) -> List[float]:
+        """Optional per-snapshot weights via probabilities_description['snapshots']."""
+        if not self.snapshots:
+            return []
+        names = [self._agent_name(a) for a in self.snapshots]
+        raw = (self.probabilities_description or {}).get("snapshots", {})
+        specified = self._parse_dict_or_pairs(raw)
+
+        sum_spec = sum(max(0.0, float(specified.get(n, 0.0))) for n in names)
+        remaining = max(0.0, 1.0 - sum_spec)
+        unspecified_idx = [i for i, n in enumerate(names) if specified.get(n) is None]
+        per_unspec = (remaining / len(unspecified_idx)) if unspecified_idx else 0.0
+
+        weights: List[float] = []
+        for i, n in enumerate(names):
+            w = specified.get(n, None)
+            if w is None:
+                w = per_unspec
+            weights.append(max(0.0, float(w)))
+        return weights
+
+    def _weighted_choice_snapshot(self) -> Optional[Any]:
+        if not self.snapshots:
+            return None
+        w = self._snapshots_weights()
+        if sum(w) <= 0.0:
+            w = None  # uniform
+        return random.choices(self.snapshots, weights=w, k=1)[0]
+
+    # ---- Final sampler combining all buckets ----
     def _sample_opponent(self) -> BaseAgent:
-        """Category sample by probabilities, then pick a random agent from that bucket. The agent must be created by .make_new_agent(env) later"""
-        p = self.probabilities
-        bucket_type = random.choices(list(p.keys()), p.values())[0]
-        sampled_agent = None
+        bucket_type = self._bucket_choice()
 
         if bucket_type == "snapshots":
-            if len(self.snapshots)>0:
-                sampled_agent =random.choice(self.snapshots)
-            else:
-                sampled_agent = random.choice(self.heuristics)
-        elif bucket_type ==  "heuristics":
-            sampled_agent = random.choice(self.heuristics)
-        else:
-            sampled_agent =  self.current_policy
+            sampled = self._weighted_choice_snapshot()
+            if sampled is not None:
+                return sampled
+            # fallback if no snapshots/weights
+            if self.heuristics:
+                return self._weighted_choice_heuristic() or random.choice(self.heuristics)
+            return self.current_policy or (random.choice(self.heuristics) if self.heuristics else None)
 
-        if sampled_agent is None:
-            sampled_agent = random.choice(self.heuristics)
+        if bucket_type == "heuristics":
+            sampled = self._weighted_choice_heuristic()
+            if sampled is not None:
+                return sampled
+            # fallback if no heuristics/weights
+            if self.snapshots:
+                return self._weighted_choice_snapshot() or random.choice(self.snapshots)
+            return self.current_policy or (random.choice(self.snapshots) if self.snapshots else None)
 
-        return sampled_agent
+        # bucket_type == 'current' (or unknown)
+        return self.current_policy or (
+            self._weighted_choice_heuristic() or
+            (random.choice(self.heuristics) if self.heuristics else None)
+        )
+
+    # ---------- Public helpers used by training ----------
 
     def get_env_classes(self, env_id: int, filter: List[str] = None) -> List[str]:
+        """Return class names of seats (optionally excluding names listed in `filter`)."""
         seats = self._env_seats[env_id]
         classes = []
         for seat in seats:
             name__ = str(type(seat).__name__)
             if filter is not None:
-                if name__ not in filter :
+                if name__ not in filter:
                     classes.append(name__)
             else:
                 classes.append(name__)
         return classes
 
-    # ---------- Public: advance env to learner's turn ----------
     def skipTo(self, learner_policy: Any, env, env_idx: int):
         """
-        Avanza 'env' dejando que asientos no-learner jueguen hasta que sea el turno del learner.
-        Devuelve (obs_np, info_dict, rolled_terminal):
-          - obs_np, info_dict: observación y máscara del turno ACTUAL del learner
-          - rolled_terminal: True si el episodio terminó durante el skipping (p.ej. el rival ganó)
-        No auto-reset: el caller debe llamar a on_env_reset(env_idx, env) si rolled_terminal=True.
+        Advance `env` by letting non-learner seats play until it's the learner's turn.
+        Returns (obs_np, info_dict, rolled_terminal):
+          - obs_np, info_dict: observation and legal mask at the learner's turn
+          - rolled_terminal: True if the episode terminated during skipping
         """
         self.ensure_env(env_idx, env)
 
@@ -161,7 +295,6 @@ class OpponentPool:
             learner_seat = 0
 
         def _is_done() -> bool:
-            # Soporta motores con o sin is_terminal()
             try:
                 return bool(env.game_engine.is_terminal())
             except Exception:
@@ -174,24 +307,24 @@ class OpponentPool:
 
         rolled_terminal = False
 
-        # Ya terminal antes de saltar: no "rodó" durante el skip
+        # Already terminal before skipping: nothing rolled during skip
         if _is_done():
             return None, None, False
 
-        MAX_HOPS = 512  # seguridad ante bucles
+        MAX_HOPS = 512  # safety against loops
 
         for _ in range(MAX_HOPS):
-            # ¿Ya es el turno del learner? Devolver su obs + legal
+            # Is it the learner's turn now?
             if int(env.current_player) == int(learner_seat):
                 legal = env._legal_for(env.current_player)
-                obs_np = env.get_obs()  # perspectiva del current_player
+                obs_np = env.get_obs()  # perspective of current_player
                 info = {
                     "current_player": env.current_player,
                     "legal_mask": env._legal_mask(legal),
                 }
                 return obs_np, info, rolled_terminal
 
-            # Turno de oponente: seleccionar y ejecutar acción
+            # Opponent's turn
             seat = int(env.current_player)
             opp_agent = seats[seat]
 
@@ -208,18 +341,17 @@ class OpponentPool:
                 legal_mask=legal_mask,
             )
 
-            # Ejecutar jugada
+            # Execute action
             _, _, terminated, truncated, _ = env.step(int(action), fast_run=True)
 
             if terminated or truncated:
-                # El episodio terminó durante el skipping (oponente hizo la última jugada)
                 rolled_terminal = True
                 return None, None, True
 
-            # si no terminó, seguirá el loop con el siguiente current_player
+            # otherwise, continue loop to next current_player
 
-        # Si llegamos aquí, probablemente un bucle por acciones ilegales o bug
-        raise RuntimeError("skipTo: excedido MAX_HOPS; posible bucle de acciones ilegales")
+        # If we got here, likely a loop due to illegal moves/bug
+        raise RuntimeError("skipTo: exceeded MAX_HOPS; possible loop of illegal actions")
 
     # ---------- Agent action adapter ----------
 
@@ -234,22 +366,21 @@ class OpponentPool:
     ) -> int:
         """
         Call into different agent types:
-          - PPORecurrentPolicy-like: Not supported if not agent and self-managed
-          - PPOFrozenAgent-like: has select_action(legal_mask, ctx={...}) and manages its own h/c
-          - Heuristics: select_action(legal_mask, ctx={'env', 'seat', 'obs'})
+          - PPORecurrentPolicy-like: not supported here (requires external LSTM state)
+          - PPOFrozenAgent-like: select_action(legal_mask, ctx={...})
+          - Heuristics: select_action(legal_mask, ctx={'env','seat','obs'})
         """
-        # Try raw PPORecurrentPolicy (needs external state)
         if isinstance(agent, PPORecurrentPolicy):
-            raise NotImplementedError("Opponent pool cannot manage external policies managed by themselves")
-        # PPOFrozenAgent or compatible wrappers
+            raise NotImplementedError("OpponentPool cannot manage live PPORecurrentPolicy opponents")
+
         if hasattr(agent, "select_action"):
             try:
                 return int(agent.select_action(legal_mask=legal_mask, ctx={"obs": obs_np, "env": env, "seat": seat}))
             except TypeError:
+                # some heuristics may have positional signature
                 return int(agent.select_action(legal_mask, {"obs": obs_np, "env": env, "seat": seat}))
 
-        # As a last resort, try a simple API `act(env)` or random legal
-        if hasattr(agent, "act"):
+        if hasattr(agent, "act"):  # very simple API
             return int(agent.act(env))
 
         # Fallback: random legal
@@ -257,3 +388,31 @@ class OpponentPool:
         if legal_idxs.size == 0:
             return 0
         return int(np.random.choice(legal_idxs))
+
+    # ----- Runtime curriculum control -----
+
+    def set_heuristics_weights(self, weights: Dict[str, float], normalize: bool = True) -> None:
+        """
+        Update fine-grained weights inside the 'heuristics' bucket.
+        'weights' keys should be agent class names (or .name if provided).
+        Unspecified agents will share the remaining mass uniformly (per our sampler).
+        """
+        w = {str(k): float(v) for k, v in (weights or {}).items()}
+        if normalize:
+            s = sum(max(0.0, x) for x in w.values())
+            if s > 0:
+                for k in list(w.keys()):
+                    w[k] = max(0.0, w[k]) / s
+        if self.probabilities_description is None:
+            self.probabilities_description = {}
+        self.probabilities_description["heuristics"] = w
+
+    def current_heuristics_weights(self) -> Dict[str, float]:
+        """
+        Returns the explicit per-class weights (not including the leftover that will be
+        distributed uniformly among unspecified agents).
+        """
+        hdesc = (self.probabilities_description or {}).get("heuristics", {})
+        if isinstance(hdesc, dict):
+            return {str(k): float(v) for k, v in hdesc.items()}
+        return {}

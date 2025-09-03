@@ -15,7 +15,7 @@ import numpy as np
 # Import engine/env bits for helpers
 try:
     from ..engine.board_layout import BOARD_LAYOUT
-    from ..ui.human_agent_ui import BOARD_LAYOUT, PANEL_W, HumanAgentUI
+    from ..ui.human_agent_ui import BOARD_LAYOUT, HumanAgentUI
     from ..engine.engine_core import is_two_eyed_jack, is_one_eyed_jack
 except Exception:  # fallback when running this file stand-alone for tinkering
 

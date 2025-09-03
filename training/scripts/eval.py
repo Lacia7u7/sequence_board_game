@@ -85,10 +85,10 @@ def main():
             w = l = d = 0
             for ep in range(args.episodes):
                 if ep % 2 == 0:
-                    terminated, truncated, winners = play_match(env, eagent, bagent, seed=ep*seed)
+                    terminated, truncated, winners = play_match(env, eagent, bagent, seed=(ep+1)*seed)
                     e_won = (0 in winners)
                 else:
-                    terminated, truncated, winners = play_match(env, bagent, eagent, seed=ep*seed)
+                    terminated, truncated, winners = play_match(env, bagent, eagent, seed=(ep+1)*seed)
                     e_won = (1 in winners)
 
                 if winners:

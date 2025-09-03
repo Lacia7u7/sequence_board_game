@@ -7,6 +7,7 @@ from .errors import EngineError, ErrorCode
 
 _DIRECTIONS = [(0, 1, "H"), (1, 0, "V"), (1, 1, "D1"), (1, -1, "D2")]
 
+
 class GameEngine:
     def __init__(self):
         self.random_seed = None
@@ -183,8 +184,18 @@ class GameEngine:
                 raise EngineError(ErrorCode.ERR_CARD_NOT_IN_HAND, details={"card": card})
             if is_two_eyed_jack(card) or is_one_eyed_jack(card):
                 raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as": "burn", "card": card})
+
+            # NEW: forbid burning if the card is currently placeable anywhere
+            positions = [(r, c) for r in range(10) for c in range(10) if BOARD_LAYOUT[r][c] == card]
+            can_place = any(self.state.board[r][c] is None for (r, c) in positions)
+
+            if can_place:
+                code = ErrorCode.ERR_INVALID_BURN  # if your enum defines it
+                raise EngineError(code, details={"reason": "burn_playable_card", "card": card})
+
+            # Proceed with burn (card isn’t placeable)
             hand.remove(card)
-            self.deck.discard(card)
+            self.deck.discard(card, burned=True)
             new_card = self.deck.draw()
             if new_card:
                 hand.append(new_card)
@@ -196,20 +207,23 @@ class GameEngine:
                 raise EngineError(ErrorCode.ERR_CARD_NOT_IN_HAND, details={"card": card})
             if target is None:
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED)
-            r = int(target["r"]); c = int(target["c"])
+            r = int(target["r"]);
+            c = int(target["c"])
             if not (0 <= r < 10 and 0 <= c < 10):
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED, details={"r": r, "c": c})
             if self.state.board[r][c] is not None:
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED, details={"r": r, "c": c})
             if is_two_eyed_jack(card):
                 if BOARD_LAYOUT[r][c] == "BONUS":
-                    raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason": "wild_on_bonus", "r": r, "c": c})
+                    raise EngineError(ErrorCode.ERR_INVALID_JACK_USE,
+                                      details={"reason": "wild_on_bonus", "r": r, "c": c})
             elif is_one_eyed_jack(card):
                 raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as": "wild/play", "card": card})
             else:
                 expected = BOARD_LAYOUT[r][c]
                 if expected != card:
-                    raise EngineError(ErrorCode.ERR_NOT_MATCHING_CARD, details={"expected": expected, "card": card, "r": r, "c": c})
+                    raise EngineError(ErrorCode.ERR_NOT_MATCHING_CARD,
+                                      details={"expected": expected, "card": card, "r": r, "c": c})
 
             # Place chip
             hand.remove(card)
@@ -268,7 +282,8 @@ class GameEngine:
                 raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"as": "jack-remove", "card": card})
             if removed is None:
                 raise EngineError(ErrorCode.ERR_TARGET_OCCUPIED)
-            rr = int(removed["r"]); cc = int(removed["c"])
+            rr = int(removed["r"]);
+            cc = int(removed["c"])
             if not (0 <= rr < 10 and 0 <= cc < 10):
                 raise EngineError(ErrorCode.ERR_NOT_MATCHING_CARD, details={"r": rr, "c": cc})
             if self.state.board[rr][cc] is None:
@@ -277,7 +292,8 @@ class GameEngine:
                 raise EngineError(ErrorCode.ERR_CANNOT_REMOVE_OWN_CHIP, details={"r": rr, "c": cc})
             allow_adv = bool(self.game_config.allowAdvancedJack)
             if not allow_adv and (rr, cc) in self.state.sequence_cells:
-                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE, details={"reason": "cell_in_sequence", "r": rr, "c": cc})
+                raise EngineError(ErrorCode.ERR_INVALID_JACK_USE,
+                                  details={"reason": "cell_in_sequence", "r": rr, "c": cc})
 
             # Remove chip
             self.state.board[rr][cc] = None
@@ -319,12 +335,14 @@ class GameEngine:
         rr, cc = r - dr, c - dc
         while 0 <= rr < 10 and 0 <= cc < 10 and self._cell_counts_for_team(rr, cc, team):
             run.insert(0, (rr, cc))
-            rr -= dr; cc -= dc
+            rr -= dr;
+            cc -= dc
         run.append((r, c))
         rr, cc = r + dr, c + dc
         while 0 <= rr < 10 and 0 <= cc < 10 and self._cell_counts_for_team(rr, cc, team):
             run.append((rr, cc))
-            rr += dr; cc += dc
+            rr += dr;
+            cc += dc
         return run
 
     def is_terminal(self) -> bool:
@@ -334,6 +352,7 @@ class GameEngine:
         if self.state is None:
             return []
         return list(self.state.winners)
+
 
 # re-export helpers
 BOARD_LAYOUT = BOARD_LAYOUT

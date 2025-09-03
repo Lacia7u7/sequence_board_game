@@ -10,8 +10,15 @@ from typing import List
 import numpy as np
 import torch
 
+from training.agents.advanced.beam_minimax_agent import BeamMinimaxAgent
+from training.agents.advanced.bonus_proximity_agent import BonusProximityAgent
+from training.agents.advanced.ensemble_heuristic_agent import EnsembleHeuristicAgent
+from training.agents.advanced.fork_threat_agent import ForkThreatAgent
+from training.agents.advanced.pattern_window_agent import PatternWindowAgent
+from training.agents.advanced.threat_aware_minimax_agent import ThreatAwareMinimaxAgent
 from training.agents.baseline.center_heuristic_agent import CenterHeuristicAgent
 from training.agents.opponent_pool import OpponentPool
+from training.algorithms.advanced.pattern_window_policy import PatternWindowPolicy
 from training.utils.agent_win_meter import AgentWinMeter
 from ..utils.jsonio import load_json, deep_update
 from ..utils.seeding import set_all_seeds, set_seeds_from_cfg
@@ -32,6 +39,106 @@ def linear_schedule(start: float, end: float, progress: float) -> float:
     """progress in [0,1]"""
     p = min(max(progress, 0.0), 1.0)
     return start + (end - start) * p
+
+def _pool_heuristic_names(pool) -> List[str]:
+    # Names used for weighting (prefers .name, falls back to class)
+    def _nm(a): return getattr(a, "name", type(a).__name__)
+    return [_nm(a) for a in getattr(pool, "heuristics", [])]
+
+
+def _compute_curriculum_weights(
+    names: List[str],
+    recent: Dict[str, float],
+    old: Dict[str, float],
+    cfg: Dict[str, any],
+) -> Dict[str, float]:
+    """
+    Convert recent class winrates into a normalized weight vector emphasizing
+    classes around a target difficulty.
+    """
+    target = float(cfg.get("target_recent", 0.6))
+    hard_thr = float(cfg.get("hard_threshold", 0.35))
+    easy_thr = float(cfg.get("easy_threshold", 0.85))
+    tau = float(cfg.get("tau", 0.15))    # temperature
+    lr = float(cfg.get("learning_rate", 0.5))
+    floor = float(cfg.get("weight_floor", 0.01))
+    cap = float(cfg.get("weight_cap", 0.5))
+
+    # Base "scores" by how close recent winrate is to target; unknown => neutral
+    scores = {}
+    for n in names:
+        r = recent.get(n, None)
+        if r is None:
+            s = 1.0  # neutral if no data yet
+        else:
+            # Gaussian-like preference around the target (higher when |r-target| is smaller)
+            s = pow(2.71828, -abs(r - target) / max(1e-6, tau))
+            # De-emphasize very easy/hard bands to prevent overfitting / demoralization
+            if r < hard_thr:
+                s *= 0.6
+            if r > easy_thr:
+                s *= 0.4
+        scores[n] = s
+
+    # Normalize scores -> proposal
+    tot = sum(scores.values()) or 1.0
+    proposal = {n: max(0.0, scores[n] / tot) for n in names}
+
+    # Smooth toward proposal from old weights (if provided)
+    # Fill old with uniform if missing
+    if not old:
+        old = {n: 1.0 / len(names) for n in names}
+    else:
+        # ensure all names present
+        missing = [n for n in names if n not in old]
+        if missing:
+            rest = 1.0 - sum(max(0.0, old.get(k, 0.0)) for k in names if k in old)
+            add = (rest / len(missing)) if missing and rest > 0 else 0.0
+            for n in missing:
+                old[n] = max(0.0, add)
+        # renorm old just in case
+        s_old = sum(max(0.0, old[k]) for k in names) or 1.0
+        for k in list(old.keys()):
+            if k in names:
+                old[k] = max(0.0, old[k]) / s_old
+
+    blended = {}
+    for n in names:
+        blended[n] = (1.0 - lr) * old.get(n, 0.0) + lr * proposal.get(n, 0.0)
+        blended[n] = min(max(blended[n], 0.0), 1.0)
+
+    # Clamp & renormalize
+    for n in list(blended.keys()):
+        blended[n] = min(max(blended[n], floor), cap)
+    s = sum(blended.values()) or 1.0
+    for n in list(blended.keys()):
+        blended[n] /= s
+
+    return blended
+
+
+def maybe_auto_curriculum(update_idx: int, pool, meter, cfg, log=None) -> None:
+    cur = cfg.get("curriculum", {})
+    if not cur or not bool(cur.get("enabled", False)):
+        return
+    adjust_every = int(cur.get("adjust_every", 5))
+    if adjust_every <= 0 or (update_idx % adjust_every) != 0:
+        return
+
+    min_games = int(cur.get("min_games_for_class", 10))
+    names = _pool_heuristic_names(pool)
+    recent = meter.recent_winrates_by_class(min_games=min_games)
+    old = pool.current_heuristics_weights()
+
+    new_w = _compute_curriculum_weights(names, recent, old, cur)
+    pool.set_heuristics_weights(new_w, normalize=True)
+
+    if bool(cur.get("log_weights", True)):
+        for k, v in new_w.items():
+            if log is not None:
+                log.scalar(f"curriculum/heuristics/{k}", float(v), step=update_idx)
+        # quick console ping
+        print("[curriculum] heuristics weights @", update_idx, {k: round(v, 3) for k, v in new_w.items()})
 
 
 def main():
@@ -146,7 +253,18 @@ def main():
     pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
 
     # Build pool candidates
-    heuristics = [GreedySequenceAgent(),CenterHeuristicAgent()]
+    heuristics = [
+        GreedySequenceAgent(),
+        CenterHeuristicAgent(),
+        BlockingAgent(),
+        RandomAgent(),
+        BeamMinimaxAgent(),
+        EnsembleHeuristicAgent(),
+        ForkThreatAgent(),
+        PatternWindowAgent(),
+        ThreatAwareMinimaxAgent(),
+        BonusProximityAgent(),
+    ]
     snapman = SnapshotManager(log.run_dir, max_keep=max_snaps) if snapshot_every > 0 else None
     snapshots = []  # preloaded snapshots (if resuming)
     if snapman is not None:
@@ -166,8 +284,17 @@ def main():
             except Exception:
                 pass
 
-    aligned_info, aligned_obs, pool = OpponentPool.create(envs, policy, pool_probs, heuristics, snapshots)
-    meter = AgentWinMeter()  # NEW
+    pool_probs = cfg["training"].get("pool_probabilities", {"current": 0.0, "snapshots": 0.7, "heuristics": 0.3})
+    pool_prob_desc = cfg["training"].get("pool_probabilities_description", None)
+
+    aligned_info, aligned_obs, pool = OpponentPool.create(
+        envs, policy, pool_probs, heuristics, snapshots, pool_prob_desc
+    )
+
+    win_window = int(cfg.get("evaluation", {}).get("winmeter_window", 256))
+    win_ema = float(cfg.get("evaluation", {}).get("winmeter_ema_alpha", 0.10))
+    win_min_rank = int(cfg.get("evaluation", {}).get("winmeter_min_games_rank", 5))
+    meter = AgentWinMeter(window=win_window, sparkline_len=48, min_games_for_ranking=win_min_rank, ema_alpha=win_ema)
 
     obs_t = torch.from_numpy(np.stack(aligned_obs, axis=0)).to(device, dtype=torch.float32)  # (N,C,H,W)
     info_list = aligned_info
@@ -384,6 +511,8 @@ def main():
         if "optim/lr" in stats:
             log.scalar("optim/lr", float(stats["optim/lr"]), step=update_idx)
         log.flush()
+
+        maybe_auto_curriculum(update_idx, pool, meter, cfg, log=log)
 
         # --- Optional: periodic snapshot & add to pool ---
         if snapman is not None and snapshot_every > 0 and ((update_idx - 1) % snapshot_every) == 0:

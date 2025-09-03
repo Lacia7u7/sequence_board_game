@@ -5,18 +5,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/training/agents/advanced/beam_minimax_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/agents/advanced/ensemble_heuristic_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/agents/advanced/fork_threat_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/agents/advanced/pattern_window_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/agents/advanced/threat_aware_minimax_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/beam_minimax_policy.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/ensemble_heuristic_policy.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/fork_threat_policy.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/pattern_window_policy.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/threat_aware_minimax_policy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/agents/advanced/bonus_proximity_agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/training/algorithms/advanced/bonus_proximity_policy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/human_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/human_agent.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/opponent_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/opponent_pool.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/training/ppo_lstm_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/training/ppo_lstm_agent.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/advanced/beam_minimax_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/advanced/beam_minimax_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/advanced/ensemble_heuristic_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/advanced/ensemble_heuristic_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/advanced/pattern_window_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/advanced/pattern_window_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/algorithms/advanced/threat_aware_minimax_policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/algorithms/advanced/threat_aware_minimax_policy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/cards.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/cards.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/engine_core.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/engine_core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/engine/errors.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/engine/errors.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/eval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/ui/human_agent_ui.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/ui/human_agent_ui.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/utils/agent_win_meter.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/agent_win_meter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -272,7 +281,7 @@
       <workItem from="1756658990992" duration="1175000" />
       <workItem from="1756678785387" duration="7795000" />
       <workItem from="1756742749365" duration="23509000" />
-      <workItem from="1756920198514" duration="1246000" />
+      <workItem from="1756920198514" duration="15539000" />
     </task>
     <servers />
   </component>
@@ -335,23 +344,43 @@
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>218</line>
+          <line>350</line>
           <option name="timeStamp" value="177" />
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/engine/engine_core.py</url>
-          <line>278</line>
+          <line>293</line>
           <option name="timeStamp" value="233" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/algorithms/ppo_lstm/ppo_lstm_policy.py</url>
           <line>217</line>
           <option name="timeStamp" value="261" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/encoders/threat_features.py</url>
           <line>2</line>
           <option name="timeStamp" value="285" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/scripts/eval.py</url>
+          <line>85</line>
+          <option name="timeStamp" value="292" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
+          <line>353</line>
+          <option name="timeStamp" value="294" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/utils/agent_win_meter.py</url>
+          <line>154</line>
+          <option name="timeStamp" value="319" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/training/utils/agent_win_meter.py</url>
+          <line>172</line>
+          <option name="timeStamp" value="321" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

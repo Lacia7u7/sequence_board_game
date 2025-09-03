@@ -1,0 +1,237 @@
+{
+  "rules": {
+    "mode": "1v1",
+    "teams": 2,
+    "players_per_team": 1,
+    "hand_size": 7,
+    "allowAdvancedJack": false,
+    "win_sequences_needed": 2,
+    "reset_full_board_no_winner": false
+  },
+  "engine": {
+    "use_cuda_sequences": true,
+    "reshuffle_on_empty_deck": true
+  },
+  "observation": {
+    "use_lstm": true,
+    "history_k": 3,
+    "channels": {
+      "team_chips": true,
+      "playable_mask_self": true,
+      "team_sequences": true,
+      "corner_mask": true,
+      "static_card_17ch": true,
+      "threats_len4_opponent": true,
+      "extendable_len3_self": true,
+      "jack_remove_targets": true,
+      "p_cell_playable_next": true,
+      "p_cell_playable_k": [
+        2,
+        3,
+        4
+      ],
+      "p_opponent_targets_next": true,
+      "empty_cells": true,
+      "jack_vuln_self": true,
+      "turn_indicator": true,
+      "deck_fraction": true,
+      "last_move": true
+    }
+  },
+  "action_space": {
+    "type": "unified",
+    "max_hand": 7,
+    "include_pass": false
+  },
+  "training": {
+    "algorithm": "ppo_lstm",
+    "seed": "random",
+    "num_envs": 32,
+    "rollout_length": 64,
+    "total_updates": 2,
+    "epochs": 4,
+    "gamma": 0.995,
+    "gae_lambda": 0.95,
+    "clip_eps": 0.2,
+    "lr": 0.00015,
+    "lr_final": 5e-05,
+    "entropy_coef": 0.03,
+    "entropy_coef_final": 0.005,
+    "value_coef": 0.61,
+    "max_grad_norm": 0.5,
+    "amp": true,
+    "minibatch_size": 256,
+    "episode_cap": 100,
+    "snapshot_every": 10,
+    "max_snapshots": 150,
+    "pool_probabilities": {
+      "current": 0.0,
+      "snapshots": 0.05,
+      "heuristics": 0.95
+    },
+    "pool_probabilities_description": {
+      "heuristics": {
+        "GreedySequenceAgent": 0.35,
+        "EnsembleHeuristicAgent": 0.25,
+        "ThreatAwareMinimaxAgent": 0.15
+      }
+    },
+    "resume_from_latest_run": true,
+    "resume_load_strict": false
+  },
+  "model": {
+    "arch": "cnn_lstm",
+    "activation": "gelu",
+    "norm": "layernorm",
+    "conv_channels": [
+      32,
+      64,
+      128,
+      128
+    ],
+    "lstm_hidden": 512,
+    "lstm_layers": 2,
+    "value_tanh_bound": 5.0,
+    "backbone": {
+      "type": "resnet",
+      "enabled": true,
+      "blocks": 8,
+      "use_se": true,
+      "preact": true,
+      "dilation_schedule": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        2
+      ]
+    },
+    "transformer": {
+      "enabled": true,
+      "d_model": 128,
+      "n_heads": 8,
+      "ffn_hidden": 256,
+      "layers": 4,
+      "dropout": 0.11,
+      "pre_ln": true,
+      "positional": "relative",
+      "tokens": {
+        "global_cls": true
+      }
+    },
+    "policy_head": {
+      "type": "spatial+mlp",
+      "conv_1x1_channels": 64,
+      "mlp": [
+        512
+      ],
+      "mask_invalid_actions": true
+    },
+    "value_head": {
+      "mlp": [
+        256,
+        128
+      ],
+      "tanh_bound": 5.0
+    }
+  },
+  "logging": {
+    "tensorboard": true,
+    "csv": true,
+    "jsonl": true,
+    "log_private_hands_locally": true,
+    "logdir": "runs/smoke/full"
+  },
+  "evaluation": {
+    "elo": true,
+    "seed": "random",
+    "trueskill": true,
+    "eval_interval_updates": 2,
+    "opponent_snapshots_keep": 2,
+    "benchmark_agents": [
+      "agents/human_agent.py"
+    ],
+    "evaluated_agents": [
+      "agents/training/ppo_lstm_agent.py"
+    ],
+    "teams": 1,
+    "agents_per_team": 1,
+    "agent_kwargs": {
+      "agents/training/ppo_lstm_agent.py": {
+        "policy_path": "E:/sequence_game_board/sequence_board_game/training/runs/smoke/full/run/policy_final.pt",
+        "deterministic": true
+      },
+      "agents/training/ppo_lstm_agent": {
+        "py": {
+          "policy_path": "runs/smoke/full/policy_final.pt"
+        }
+      }
+    },
+    "winmeter_window": 256,
+    "winmeter_ema_alpha": 0.1,
+    "winmeter_min_games_rank": 5
+  },
+  "curriculum": {
+    "enabled": true,
+    "adjust_every": 5,
+    "target_recent": 0.6,
+    "hard_threshold": 0.35,
+    "easy_threshold": 0.85,
+    "min_games_for_class": 10,
+    "learning_rate": 0.5,
+    "tau": 0.15,
+    "weight_floor": 0.01,
+    "weight_cap": 0.5,
+    "log_weights": true
+  },
+  "rewards": {
+    "illegal": -0.01,
+    "win": 1.0,
+    "loss": -1.0,
+    "seq_bonus": 0.25,
+    "step_penalty": 0.0,
+    "open4_self": 0.035,
+    "open4_opp": 0.05,
+    "open3_self": 0.008,
+    "open3_opp": 0.012
+  },
+  "rewards_extra": {
+    "imm_win_self": 0.05,
+    "imm_win_opp": 0.05,
+    "fork_self": 0.04,
+    "fork_opp": 0.04,
+    "run_self": 0.012,
+    "run_opp": 0.013,
+    "open2_self": 0.006,
+    "open2_opp": 0.008,
+    "closed4_breaker": 0.08,
+    "jack_remove_impact": 0.06,
+    "wild_efficiency": 0.11,
+    "hot_control_self": 0.004,
+    "hot_control_opp": 0.004,
+    "center_control": 0.023,
+    "corner_synergy": 0.0042,
+    "coverage_cut": 0.008,
+    "redundancy_penalty": 0.03,
+    "protected_chips": 0.011,
+    "jack_vuln_self": 0.012,
+    "jack_vuln_opp": 0.015,
+    "blunder": 0.06,
+    "mobility": 0.0007,
+    "discard_ev": 0.006,
+    "early_finish_bonus": 0.25
+  },
+  "shaping": {
+    "use_potential": true,
+    "per_term_clip": 0.25,
+    "global_clip": 0.5,
+    "anneal_total_env_steps": 200000,
+    "anneal_min_scale": 0.0
+  },
+  "performance": {
+    "use_torch_features": true,
+    "device": "cuda",
+    "dtype": "float32"
+  }
+}
