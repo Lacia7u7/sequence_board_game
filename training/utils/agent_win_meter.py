@@ -94,6 +94,8 @@ class AgentWinMeter:
         a = self.ema_alpha
         self._ema_overall = (1 - a) * self._ema_overall + a * (1.0 if won else 0.0)
         for cls_name in opponent_classes:
+            if "NoneType" in cls_name:
+                continue
             dq = self._recent_by_class[cls_name]
             dq.append(won)
             self._ema_by_class[cls_name] = (1 - a) * self._ema_by_class[cls_name] + a * (1.0 if won else 0.0)

@@ -6,7 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756967203.Carlos_ASUS2023.7572.6" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/events.out.tfevents.1756967203.Carlos_ASUS2023.7572.6" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/training/runs/smoke/full/run/metrics.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/starter.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/training/starter.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/training/utils/agent_win_meter.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/utils/agent_win_meter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -267,7 +269,7 @@
       <workItem from="1756941648831" duration="598000" />
       <workItem from="1756950670422" duration="447000" />
       <workItem from="1756958989979" duration="1021000" />
-      <workItem from="1756962080199" duration="5595000" />
+      <workItem from="1756962080199" duration="6228000" />
     </task>
     <servers />
   </component>
@@ -313,7 +315,7 @@
           <line>40</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
+        <line-breakpoint suspend="THREAD" type="jupyter-line">
           <url>file://$PROJECT_DIR$/training/starter.ipynb</url>
           <line>130</line>
           <option name="timeStamp" value="324" />
@@ -363,12 +365,12 @@
           <line>353</line>
           <option name="timeStamp" value="294" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/envs/vectorized/subproc_vec_env.py</url>
           <line>68</line>
           <option name="timeStamp" value="326" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+        <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
           <line>271</line>
           <option name="timeStamp" value="331" />
