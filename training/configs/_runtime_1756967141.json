@@ -25,7 +25,11 @@
       "extendable_len3_self": true,
       "jack_remove_targets": true,
       "p_cell_playable_next": true,
-      "p_cell_playable_k": [2, 3, 4],
+      "p_cell_playable_k": [
+        2,
+        3,
+        4
+      ],
       "p_opponent_targets_next": true,
       "empty_cells": true,
       "jack_vuln_self": true,
@@ -45,13 +49,13 @@
     "num_envs": 8,
     "num_workers": 4,
     "rollout_length": 64,
-    "total_updates": 2,
+    "total_updates": 20,
     "epochs": 4,
     "gamma": 0.995,
     "gae_lambda": 0.95,
     "clip_eps": 0.2,
     "lr": 0.00015,
-    "lr_final": 0.00005,
+    "lr_final": 5e-05,
     "entropy_coef": 0.03,
     "entropy_coef_final": 0.005,
     "value_coef": 0.61,
@@ -75,7 +79,7 @@
         "CenterHeuristicAgent": 0.14,
         "PatternWindowAgent": 0.16,
         "EnsembleHeuristicAgent": 0.14,
-        "ForkThreatAgent": 0.10,
+        "ForkThreatAgent": 0.1,
         "BeamMinimaxAgent": 0.08,
         "ThreatAwareMinimaxAgent": 0.08
       }
@@ -87,7 +91,12 @@
     "arch": "cnn_lstm",
     "activation": "gelu",
     "norm": "layernorm",
-    "conv_channels": [32, 64, 128, 128],
+    "conv_channels": [
+      32,
+      64,
+      128,
+      128
+    ],
     "lstm_hidden": 512,
     "lstm_layers": 2,
     "value_tanh_bound": 5.0,
@@ -97,7 +106,14 @@
       "blocks": 8,
       "use_se": true,
       "preact": true,
-      "dilation_schedule": [1, 1, 2, 1, 1, 2]
+      "dilation_schedule": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        2
+      ]
     },
     "transformer": {
       "enabled": true,
@@ -115,11 +131,16 @@
     "policy_head": {
       "type": "spatial+mlp",
       "conv_1x1_channels": 64,
-      "mlp": [512],
+      "mlp": [
+        512
+      ],
       "mask_invalid_actions": true
     },
     "value_head": {
-      "mlp": [256, 128],
+      "mlp": [
+        256,
+        128
+      ],
       "tanh_bound": 5.0
     }
   },
