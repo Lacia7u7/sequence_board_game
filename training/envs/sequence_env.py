@@ -126,8 +126,7 @@ class SequenceEnv:
         self._fast_dtype = str(perf.get("dtype", "float16"))
         self._FAST_READY = False
         self._init_fast_backend()
-
-    # ---------------- Gym-like API ----------------
+    # ---------------- Gym-like API ---------------
 
     def reset(self, seed: Optional[int] = None):
         if seed is not None:

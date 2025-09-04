@@ -42,7 +42,7 @@
   "training": {
     "algorithm": "ppo_lstm",
     "seed": "random",
-    "num_envs": 32,
+    "num_envs": 4,
     "rollout_length": 64,
     "total_updates": 2,
     "epochs": 4,
