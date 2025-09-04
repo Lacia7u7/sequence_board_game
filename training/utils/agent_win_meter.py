@@ -77,6 +77,8 @@ class AgentWinMeter:
         self._global_games += 1
         self._global_wins += int(won)
         for cls_name in opponent_classes:
+            if "NoneType" in cls_name:
+                continue
             d = self._per_class[cls_name]
             d["games"] += 1
             d["wins"] += int(won)
