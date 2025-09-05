@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Tuple, Optional
 
 import numpy as np
 
+from collections import OrderedDict
+
 from training.algorithms.ppo_lstm.ppo_lstm_policy import PPORecurrentPolicy
 # Worker-side imports (keep top-level for spawn safety)
 from training.envs.sequence_env import SequenceEnv
@@ -45,6 +47,43 @@ def _build_heuristics() -> List[Any]:
         BonusProximityAgent(),
     ]
 
+class _SnapshotRegistry:
+    """Per-worker LRU cache of loaded PPOFrozenAgent models (CPU)."""
+    def __init__(self, capacity: int = 2):
+        self.capacity = max(1, int(capacity))
+        self._cache = OrderedDict()  # path -> PPOFrozenAgent
+
+    def get(self, path: str, policy_kwargs: dict):
+        # Return cached agent if available
+        agent = self._cache.get(path)
+        if agent is not None:
+            self._cache.move_to_end(path)
+            return agent
+        # Load on demand
+        agent = PPOFrozenAgent(state_dict_path=path, **policy_kwargs)
+        self._cache[path] = agent
+        # Evict LRU if over capacity
+        while len(self._cache) > self.capacity:
+            self._cache.popitem(last=False)
+        return agent
+
+
+class _SnapshotFactory:
+    """
+    Lightweight proxy that creates/returns a cached PPOFrozenAgent from a registry.
+    Provides .make_new_agent(env) so OpponentPool uses it transparently.
+    """
+    def __init__(self, path: str, registry: _SnapshotRegistry, policy_kwargs: dict):
+        self.state_dict_path = path
+        self._registry = registry
+        self.policy_kwargs = dict(policy_kwargs)
+        self.name = f"Snapshot[{os.path.basename(path)}]"
+
+    def make_new_agent(self, env=None):
+        # Let FileNotFoundError bubble up; OpponentPool will handle removal/resample.
+        return self._registry.get(self.state_dict_path, self.policy_kwargs)
+
+
 def _worker_loop(
     pipe,
     cfg_bytes: bytes,
@@ -70,6 +109,25 @@ def _worker_loop(
         os.environ.setdefault("MKL_NUM_THREADS", "1")
 
         cfg = pickle.loads(cfg_bytes)
+
+        max_cache = int(cfg.get("training", {}).get(
+            "max_snapshot_cache",
+            max(1, int(cfg.get("training", {}).get("max_snapshots", 2)))
+        ))
+
+        policy_kwargs = dict(
+            obs_shape=obs_shape_from_parent,
+            action_dim=envs[0].action_dim,
+            conv_channels=cfg["model"]["conv_channels"],
+            lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+            lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+            value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+            device="cpu",
+            model_cfg=cfg["model"],
+        )
+
+        _registry = _SnapshotRegistry(capacity=max_cache)
+
         num_local = len(seeds)
         if num_local <= 0:
             pipe.send(("fatal", "Worker started with zero local envs"))
@@ -85,19 +143,8 @@ def _worker_loop(
         snapshots = []
         for p in (snapshot_paths or []):
             try:
-                snapshots.append(PPOFrozenAgent(
-                    obs_shape=obs_shape_from_parent ,
-                    action_dim=envs[0].action_dim,
-                    conv_channels=cfg["model"]["conv_channels"],
-                    lstm_hidden=int(cfg["model"]["lstm_hidden"]),
-                    lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
-                    value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
-                    device="cpu",
-                    model_cfg=cfg["model"],
-                    state_dict_path=p,
-                ))
+                snapshots.append(_SnapshotFactory(p, _registry, policy_kwargs))
             except Exception:
-                # Ignore bad snapshot at startup; parent can add more later
                 pass
 
         # 3) Create OpponentPool across these envs
@@ -240,18 +287,8 @@ def _worker_loop(
             if cmd == _CMD_ADD_SNAPSHOT:
                 try:
                     path = str(payload["path"])
-                    frozen = PPOFrozenAgent(
-                        obs_shape=obs_shape_from_parent,
-                        action_dim=envs[0].action_dim,
-                        conv_channels=cfg["model"]["conv_channels"],
-                        lstm_hidden=int(cfg["model"]["lstm_hidden"]),
-                        lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
-                        value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
-                        device="cpu",
-                        model_cfg=cfg["model"],
-                        state_dict_path=path,
-                    )
-                    pool.add_snapshot(frozen, max_snapshots=int(payload.get("max_keep", 0) or 0))
+                    factory = _SnapshotFactory(path, _registry, policy_kwargs)
+                    pool.add_snapshot(factory, max_snapshots=int(payload.get("max_keep", 0) or 0))
                     pipe.send(True)
                 except Exception:
                     pipe.send(("error", traceback.format_exc()))

@@ -60,7 +60,8 @@
     "minibatch_size": 1024,
     "episode_cap": 100,
     "snapshot_every": 5,
-    "max_snapshots": 40,
+    "max_snapshots": 10,
+    "max_snapshot_cache": 3,
     "pool_probabilities": {
       "current": 0.0,
       "snapshots": 0.05,

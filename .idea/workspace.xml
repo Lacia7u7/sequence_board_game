@@ -5,8 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5fb681a0-81b8-4381-9737-c2dd93b80e8c" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/training/scripts/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/training/scripts/train_vec.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/scripts/train_vec.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/agents/opponent_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/agents/opponent_pool.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" beforeDir="false" afterPath="$PROJECT_DIR$/training/configs/full-tiny-smoke.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/training/envs/vectorized/subproc_vec_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/training/envs/vectorized/subproc_vec_env.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -267,7 +269,8 @@
       <workItem from="1756950670422" duration="447000" />
       <workItem from="1756958989979" duration="1021000" />
       <workItem from="1756962080199" duration="6228000" />
-      <workItem from="1757045768626" duration="3084000" />
+      <workItem from="1757045768626" duration="7712000" />
+      <workItem from="1757087731218" duration="1320000" />
     </task>
     <servers />
   </component>
@@ -335,7 +338,7 @@
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>350</line>
+          <line>378</line>
           <option name="timeStamp" value="177" />
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
@@ -360,17 +363,17 @@
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>353</line>
+          <line>381</line>
           <option name="timeStamp" value="294" />
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/envs/vectorized/subproc_vec_env.py</url>
-          <line>68</line>
+          <line>107</line>
           <option name="timeStamp" value="326" />
         </line-breakpoint>
         <line-breakpoint suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/training/agents/opponent_pool.py</url>
-          <line>271</line>
+          <line>299</line>
           <option name="timeStamp" value="331" />
         </line-breakpoint>
       </breakpoints>

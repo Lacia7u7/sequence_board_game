@@ -114,11 +114,39 @@ class OpponentPool:
             if seat == 0:
                 a = self.current_policy
             else:
-                base = self._sample_opponent()
-                factory = getattr(base, "make_new_agent", None)
-                a = factory(env) if callable(factory) else base  # use as-is if no factory
+                a = None
+                # Try a few times in case we sample a stale/failed snapshot
+                for _ in range(4):
+                    base = self._sample_opponent()
+                    factory = getattr(base, "make_new_agent", None)
+                    try:
+                        a_try = factory(env) if callable(factory) else base
+                        if a_try is None:
+                            raise RuntimeError("Opponent factory returned None")
+                        a = a_try
+                        break
+                    except FileNotFoundError:
+                        # Stale snapshot file on disk; drop it and resample
+                        if base in self.snapshots:
+                            try:
+                                self.snapshots.remove(base)
+                            except Exception:
+                                pass
+                        a = None
+                        continue
+                    except Exception:
+                        a = None
+                        continue
+
+                # Final fallback if we couldn't build anything
                 if a is None:
-                    raise Exception("Unable to create opponent from:", base)
+                    a = self._weighted_choice_heuristic() or (
+                            self.current_policy or
+                            (random.choice(self.heuristics) if self.heuristics else None)
+                    )
+                    if a is None:
+                        raise RuntimeError("OpponentPool: no available opponent to assign")
+
             seats.append(a)
 
         self._env_seats[env_idx] = seats
