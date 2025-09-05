@@ -110,24 +110,6 @@ def _worker_loop(
 
         cfg = pickle.loads(cfg_bytes)
 
-        max_cache = int(cfg.get("training", {}).get(
-            "max_snapshot_cache",
-            max(1, int(cfg.get("training", {}).get("max_snapshots", 2)))
-        ))
-
-        policy_kwargs = dict(
-            obs_shape=obs_shape_from_parent,
-            action_dim=envs[0].action_dim,
-            conv_channels=cfg["model"]["conv_channels"],
-            lstm_hidden=int(cfg["model"]["lstm_hidden"]),
-            lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
-            value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
-            device="cpu",
-            model_cfg=cfg["model"],
-        )
-
-        _registry = _SnapshotRegistry(capacity=max_cache)
-
         num_local = len(seeds)
         if num_local <= 0:
             pipe.send(("fatal", "Worker started with zero local envs"))
@@ -138,13 +120,39 @@ def _worker_loop(
         for li, s in enumerate(seeds):
             envs[li].reset(seed=int(s))
 
-        # 2) Build heuristics and preload snapshots (CPU)
+        # Snapshot cache capacity (LRU, per-worker)
+        max_cache = int(cfg.get("training", {}).get(
+            "max_snapshot_cache",
+            max(1, int(cfg.get("training", {}).get("max_snapshots", 2)))
+        ))
+
+        # Prepare snapshot policy kwargs AFTER envs exist.
+        # If parent didn't provide obs_shape yet, fall back to env observation shape.
+        try:
+            _obs_shape_for_snaps = tuple(obs_shape_from_parent) if obs_shape_from_parent is not None else tuple(envs[0].get_obs().shape)
+        except Exception:
+            _obs_shape_for_snaps = tuple(envs[0].get_obs().shape)
+
+        policy_kwargs = dict(
+            obs_shape=_obs_shape_for_snaps,
+            action_dim=envs[0].action_dim,
+            conv_channels=cfg["model"]["conv_channels"],
+            lstm_hidden=int(cfg["model"]["lstm_hidden"]),
+            lstm_layers=int(cfg["model"].get("lstm_layers", 1)),
+            value_tanh_bound=float(cfg["model"].get("value_tanh_bound", 5.0)),
+            device="cpu",
+            model_cfg=cfg["model"],
+        )
+        _registry = _SnapshotRegistry(capacity=max_cache)
+
+        # 2) Build heuristics and register snapshot FACTORIES (lazy-loaded via LRU)
         heuristics = _build_heuristics()
         snapshots = []
         for p in (snapshot_paths or []):
             try:
                 snapshots.append(_SnapshotFactory(p, _registry, policy_kwargs))
             except Exception:
+                # Ignore bad snapshot at startup; parent can add more later
                 pass
 
         # 3) Create OpponentPool across these envs
