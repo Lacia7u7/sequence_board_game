@@ -200,7 +200,7 @@ def main():
     resume_flag = bool(cfg["training"].get("resume_from_latest_run", True))
     resume_state_dict_path = cfg["training"].get("resume_state_dict_path", None)
     if resume_flag:
-        if resume_state_dict_path is "default":
+        if resume_state_dict_path == "default":
             latest_path = os.path.join(LoggingMux.get_run_dir(cfg), "policy_final.pt")
         else:
             latest_path = resume_state_dict_path
