@@ -56,6 +56,7 @@ class LoggingMux:
         run_name = log_cfg.get("run_name", "run")
         self.run_dir = os.path.join(os.path.abspath(base_dir), run_name)
         os.makedirs(self.run_dir, exist_ok=True)
+        print("Run dir: {}".format(self.run_dir))
 
         self.tb = TBWriter(base_dir, run_name) if log_cfg.get("tensorboard", True) else None
         self.csv = CSVLogger(os.path.join(self.run_dir, "metrics.csv")) if log_cfg.get("csv", True) else None

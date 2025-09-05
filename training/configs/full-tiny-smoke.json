@@ -81,7 +81,8 @@
       }
     },
     "resume_from_latest_run": true,
-    "resume_load_strict": false
+    "resume_load_strict": false,
+    "resume_state_dict_path": "default"
   },
   "model": {
     "arch": "cnn_lstm",
@@ -156,17 +157,18 @@
   },
   "curriculum": {
     "enabled": true,
-    "adjust_every": 5,
-    "target_recent": 0.6,
-    "hard_threshold": 0.2,
-    "easy_threshold": 0.85,
+    "adjust_every": 4,
+    "target_recent": 0.40,
+    "hard_threshold": 0.4,
+    "easy_threshold": 0.75,
     "min_games_for_class": 10,
-    "learning_rate": 0.5,
-    "tau": 0.15,
-    "weight_floor": 0.01,
-    "weight_cap": 0.5,
+    "learning_rate": 0.6,
+    "tau": 0.25,
+    "weight_floor": 0.025,
+    "weight_cap": 0.65,
     "log_weights": true
   },
+
   "rewards": {
     "illegal": -0.01,
     "win": 1.0,

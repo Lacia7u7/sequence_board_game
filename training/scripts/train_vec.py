@@ -250,8 +250,12 @@ def main():
 
     # --- Optionally resume current policy from the latest run ---
     resume_flag = bool(cfg["training"].get("resume_from_latest_run", True))
+    resume_state_dict_path = cfg["training"].get("resume_state_dict_path", None)
     if resume_flag:
-        latest_path = os.path.join(LoggingMux.get_run_dir(cfg), "policy_final.pt")
+        if resume_state_dict_path is "default":
+            latest_path = os.path.join(LoggingMux.get_run_dir(cfg), "policy_final.pt")
+        else:
+            latest_path = resume_state_dict_path
         try:
             state_dict = torch.load(latest_path, map_location=device)
             strict = bool(cfg["training"].get("resume_load_strict", False))
